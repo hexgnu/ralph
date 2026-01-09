@@ -4,6 +4,13 @@
 
 set -e
 
+# Load nvm if available
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh"
+    nvm use --lts --silent
+fi
+
 if [ -z "$1" ]; then
     echo "Usage: ./lisa.sh \"Plan: your feature description\""
     echo ""
@@ -15,4 +22,4 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-claude --agent lisa "$@"
+claude --dangerously-skip-permissions --agent lisa "$@"
