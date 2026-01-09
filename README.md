@@ -2,171 +2,144 @@
 
 ![Ralph](ralph.webp)
 
-Ralph is an autonomous AI agent loop that runs [Amp](https://ampcode.com) repeatedly until all PRD items are complete. Each iteration is a fresh Amp instance with clean context. Memory persists via git history, `progress.txt`, and `prd.json`.
+Ralph is an autonomous AI agent system that implements features from PRDs. It uses the **Lisa → Ralph → Marge** workflow:
 
-Based on [Geoffrey Huntley's Ralph pattern](https://ghuntley.com/ralph/).
+- **Lisa** plans (Gemba Walk → A3 Analysis → War Room → prd.json)
+- **Ralph** executes (implement stories one by one)
+- **Marge** reviews (quality gate before each commit)
 
-[Read my in-depth article on how I use Ralph](https://x.com/ryancarson/status/2008548371712135632)
+Memory persists via git history, `progress.txt`, and `prd.json`. Based on [Geoffrey Huntley's Ralph pattern](https://ghuntley.com/ralph/).
 
 ## Prerequisites
 
-- [Amp CLI](https://ampcode.com) installed and authenticated
+- [Claude Code](https://claude.ai/code) installed and authenticated
+- Docker or Podman (for sandboxed execution)
 - `jq` installed (`brew install jq` on macOS)
 - A git repository for your project
 
-## Setup
-
-### Option 1: Copy to your project
-
-Copy the ralph files into your project:
+## Quick Start
 
 ```bash
-# From your project root
-mkdir -p scripts/ralph
-cp /path/to/ralph/ralph.sh scripts/ralph/
-cp /path/to/ralph/prompt.md scripts/ralph/
-chmod +x scripts/ralph/ralph.sh
+# 1. Copy agents to your Claude config
+cp agents/*.md ~/.claude/agents/
+
+# 2. Run Lisa to plan a feature (in sandbox)
+./sandbox.sh --agent lisa "Plan: add user authentication with OAuth"
+
+# 3. Review the generated prd.json and artifacts
+
+# 4. Run Ralph to execute (in sandbox)
+./sandbox.sh -p "$(cat prompt.md)"
 ```
 
-### Option 2: Install skills globally
+## The Simpsons Workflow
 
-Copy the skills to your Amp config for use across all projects:
+```
+Feature Idea
+    ↓
+┌─────────────────────────────────────┐
+│  LISA (Planning)                    │
+│  1. Gemba Walk - observe codebase   │
+│  2. A3 Analysis - define problem    │
+│  3. War Room - adversarial review   │
+│  4. Output: prd.json                │
+└─────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────┐
+│  RALPH (Execution Loop)             │
+│  For each story:                    │
+│    - Implement                      │
+│    - Run tests                      │
+│    - MARGE reviews                  │
+│    - If COMMIT: git commit          │
+│    - If REJECT: fix and retry       │
+└─────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────┐
+│  DONE                               │
+│  <promise>COMPLETE</promise>        │
+└─────────────────────────────────────┘
+```
+
+## Sandbox (Recommended)
+
+Run Claude Code in an isolated container for safety:
 
 ```bash
-cp -r skills/prd ~/.config/amp/skills/
-cp -r skills/ralph ~/.config/amp/skills/
+./sandbox.sh "Your prompt here"
+./sandbox.sh --agent lisa "Plan: feature description"
 ```
 
-### Configure Amp auto-handoff (recommended)
+The sandbox:
+- Copies your project into a container (not mounted = true isolation)
+- Runs with `--dangerously-skip-permissions` (safe because containerized)
+- Shows you changes before applying them to your real project
+- Works with Docker or Podman automatically
 
-Add to `~/.config/amp/settings.json`:
+## Agents
 
-```json
-{
-  "amp.experimental.autoHandoff": { "context": 90 }
-}
-```
+| Agent | Purpose |
+|-------|---------|
+| `gemba-walk` | Observe codebase reality before planning |
+| `war-room` | Adversarial review (Carmack, DHH, Schneier personas) |
+| `lisa` | Orchestrate: gemba → A3 → war-room → prd.json |
+| `marge` | Pre-commit quality gate |
 
-This enables automatic handoff when context fills up, allowing Ralph to handle large stories that exceed a single context window.
+### War Room Personas
 
-## Workflow
+- **John Carmack**: Performance, simplicity, no unnecessary abstraction
+- **DHH**: Pragmatism, convention over configuration, ship it
+- **Bruce Schneier**: Security, threat modeling, fail safely
 
-### 1. Create a PRD
+### Marge Quality Gate
 
-Use the PRD skill to generate a detailed requirements document:
+After tests pass, Marge reviews the diff. She blocks for:
+- Security vulnerabilities
+- Outage risks
+- Architecture violations
+- Excessive complexity
 
-```
-Load the prd skill and create a PRD for [your feature description]
-```
-
-Answer the clarifying questions. The skill saves output to `tasks/prd-[feature-name].md`.
-
-### 2. Convert PRD to Ralph format
-
-Use the Ralph skill to convert the markdown PRD to JSON:
-
-```
-Load the ralph skill and convert tasks/prd-[feature-name].md to prd.json
-```
-
-This creates `prd.json` with user stories structured for autonomous execution.
-
-### 3. Run Ralph
-
-```bash
-./scripts/ralph/ralph.sh [max_iterations]
-```
-
-Default is 10 iterations.
-
-Ralph will:
-1. Create a feature branch (from PRD `branchName`)
-2. Pick the highest priority story where `passes: false`
-3. Implement that single story
-4. Run quality checks (typecheck, tests)
-5. Commit if checks pass
-6. Update `prd.json` to mark story as `passes: true`
-7. Append learnings to `progress.txt`
-8. Repeat until all stories pass or max iterations reached
+She does NOT block for style preferences or theoretical concerns.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `ralph.sh` | The bash loop that spawns fresh Amp instances |
-| `prompt.md` | Instructions given to each Amp instance |
-| `prd.json` | User stories with `passes` status (the task list) |
-| `prd.json.example` | Example PRD format for reference |
-| `progress.txt` | Append-only learnings for future iterations |
-| `skills/prd/` | Skill for generating PRDs |
-| `skills/ralph/` | Skill for converting PRDs to JSON |
-| `flowchart/` | Interactive visualization of how Ralph works |
-
-## Flowchart
-
-[![Ralph Flowchart](ralph-flowchart.png)](https://snarktank.github.io/ralph/)
-
-**[View Interactive Flowchart](https://snarktank.github.io/ralph/)** - Click through to see each step with animations.
-
-The `flowchart/` directory contains the source code. To run locally:
-
-```bash
-cd flowchart
-npm install
-npm run dev
-```
+| `sandbox.sh` | Run Claude Code in isolated container |
+| `Dockerfile` | Ralph sandbox container |
+| `prompt.md` | Instructions for Ralph execution loop |
+| `prd.json` | User stories with `passes` status |
+| `progress.txt` | Append-only learnings |
+| `agents/` | Lisa, Marge, War Room, Gemba Walk agents |
 
 ## Critical Concepts
 
-### Each Iteration = Fresh Context
+### Gemba Walk (Lean Thinking)
 
-Each iteration spawns a **new Amp instance** with clean context. The only memory between iterations is:
-- Git history (commits from previous iterations)
-- `progress.txt` (learnings and context)
-- `prd.json` (which stories are done)
+Before planning, observe the actual code. "Go see, ask why, show respect." Produces a Reality Report that grounds all subsequent planning in what actually exists, not assumptions.
 
-### Small Tasks
+### Story Sizing
 
-Each PRD item should be small enough to complete in one context window. If a task is too big, the LLM runs out of context before finishing and produces poor code.
+Each story MUST complete in one context window. Split big features:
 
-Right-sized stories:
+**Right-sized:**
 - Add a database column and migration
 - Add a UI component to an existing page
 - Update a server action with new logic
-- Add a filter dropdown to a list
 
-Too big (split these):
+**Too big (split these):**
 - "Build the entire dashboard"
 - "Add authentication"
 - "Refactor the API"
 
-### AGENTS.md Updates Are Critical
+### Fresh Context Per Iteration
 
-After each iteration, Ralph updates the relevant `AGENTS.md` files with learnings. This is key because Amp automatically reads these files, so future iterations (and future human developers) benefit from discovered patterns, gotchas, and conventions.
-
-Examples of what to add to AGENTS.md:
-- Patterns discovered ("this codebase uses X for Y")
-- Gotchas ("do not forget to update Z when changing W")
-- Useful context ("the settings panel is in component X")
-
-### Feedback Loops
-
-Ralph only works if there are feedback loops:
-- Typecheck catches type errors
-- Tests verify behavior
-- CI must stay green (broken code compounds across iterations)
-
-### Browser Verification for UI Stories
-
-Frontend stories must include "Verify in browser using dev-browser skill" in acceptance criteria. Ralph will use the dev-browser skill to navigate to the page, interact with the UI, and confirm changes work.
-
-### Stop Condition
-
-When all stories have `passes: true`, Ralph outputs `<promise>COMPLETE</promise>` and the loop exits.
+Each Ralph iteration spawns a new Claude instance with clean context. Memory persists only via:
+- Git commits
+- `progress.txt` learnings
+- `prd.json` story status
 
 ## Debugging
-
-Check current state:
 
 ```bash
 # See which stories are done
@@ -179,18 +152,17 @@ cat progress.txt
 git log --oneline -10
 ```
 
-## Customizing prompt.md
+## Flowchart
 
-Edit `prompt.md` to customize Ralph's behavior for your project:
-- Add project-specific quality check commands
-- Include codebase conventions
-- Add common gotchas for your stack
+[![Ralph Flowchart](ralph-flowchart.png)](https://snarktank.github.io/ralph/)
 
-## Archiving
+**[View Interactive Flowchart](https://snarktank.github.io/ralph/)**
 
-Ralph automatically archives previous runs when you start a new feature (different `branchName`). Archives are saved to `archive/YYYY-MM-DD-feature-name/`.
+```bash
+cd flowchart && npm install && npm run dev
+```
 
 ## References
 
 - [Geoffrey Huntley's Ralph article](https://ghuntley.com/ralph/)
-- [Amp documentation](https://ampcode.com/manual)
+- [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code)

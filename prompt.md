@@ -4,23 +4,37 @@ You are an autonomous coding agent working on a software project.
 
 ## Your Task
 
-1. Read the PRD at `prd.json` (in the same directory as this file)
+1. Read the PRD at `prd.json`
 2. Read the progress log at `progress.txt` (check Codebase Patterns section first)
 3. Check you're on the correct branch from PRD `branchName`. If not, check it out or create from main.
 4. Pick the **highest priority** user story where `passes: false`
 5. Implement that single user story
 6. Run quality checks (e.g., typecheck, lint, test - use whatever your project requires)
-7. Update AGENTS.md files if you discover reusable patterns (see below)
-8. If checks pass, commit ALL changes with message: `feat: [Story ID] - [Story Title]`
+7. **Run Marge quality gate** (see below)
+8. If Marge says COMMIT, commit ALL changes with message: `feat: [Story ID] - [Story Title]`
 9. Update the PRD to set `passes: true` for the completed story
 10. Append your progress to `progress.txt`
+11. Update AGENTS.md files if you discover reusable patterns
+
+## Marge Quality Gate
+
+Before committing, invoke the `marge` agent to review your changes:
+
+```
+Use the Task tool to spawn: marge agent
+Prompt: "Review the staged changes (git diff --staged) for this story: [Story ID]"
+```
+
+- If Marge says **COMMIT**: Proceed to commit
+- If Marge says **REJECT**: Fix the issue she identified, then re-run Marge
+
+Do NOT commit code that Marge rejects. Fix it first.
 
 ## Progress Report Format
 
 APPEND to progress.txt (never replace, always append):
 ```
 ## [Date/Time] - [Story ID]
-Thread: https://ampcode.com/threads/$AMP_CURRENT_THREAD_ID
 - What was implemented
 - Files changed
 - **Learnings for future iterations:**
@@ -29,8 +43,6 @@ Thread: https://ampcode.com/threads/$AMP_CURRENT_THREAD_ID
   - Useful context (e.g., "the evaluation panel is in component X")
 ---
 ```
-
-Include the thread URL so future iterations can use the `read_thread` tool to reference previous work if needed.
 
 The learnings section is critical - it helps future iterations avoid repeating mistakes and understand the codebase better.
 
@@ -76,20 +88,20 @@ Only update AGENTS.md if you have **genuinely reusable knowledge** that would he
 ## Quality Requirements
 
 - ALL commits must pass your project's quality checks (typecheck, lint, test)
+- ALL commits must pass Marge's quality gate
 - Do NOT commit broken code
 - Keep changes focused and minimal
 - Follow existing code patterns
 
 ## Browser Testing (Required for Frontend Stories)
 
-For any story that changes UI, you MUST verify it works in the browser:
+For any story that changes UI, you MUST verify it works:
 
-1. Load the `dev-browser` skill
-2. Navigate to the relevant page
-3. Verify the UI changes work as expected
-4. Take a screenshot if helpful for the progress log
+1. Take a screenshot of the relevant page
+2. Verify the UI changes work as expected
+3. Include screenshot evidence in your progress report
 
-A frontend story is NOT complete until browser verification passes.
+A frontend story is NOT complete until visual verification passes.
 
 ## Stop Condition
 
@@ -105,4 +117,5 @@ If there are still stories with `passes: false`, end your response normally (ano
 - Work on ONE story per iteration
 - Commit frequently
 - Keep CI green
+- Always run Marge before committing
 - Read the Codebase Patterns section in progress.txt before starting
