@@ -61,15 +61,12 @@ echo -e "${YELLOW}Results will be on branch: $BRANCH_NAME${NC}"
 echo ""
 
 # Build mount arguments
-MOUNT_ARGS="-v $TEMP_WORKSPACE:/workspace:rw"
+MOUNT_ARGS="-v $TEMP_WORKSPACE:/workspace:rw,z"
 
-# Copy only essential credentials (not full .claude directory)
-mkdir -p "$TEMP_WORKSPACE/.host-claude"
-for item in .credentials.json settings.json agents statsig; do
-    if [ -e "$HOME/.claude/$item" ]; then
-        cp -r "$HOME/.claude/$item" "$TEMP_WORKSPACE/.host-claude/"
-    fi
-done
+# Copy Claude credentials (entire directory for OAuth support)
+if [ -d "$HOME/.claude" ]; then
+    cp -r "$HOME/.claude" "$TEMP_WORKSPACE/.host-claude"
+fi
 
 # Copy git config
 if [ -f "$HOME/.gitconfig" ]; then
@@ -85,6 +82,8 @@ fi
 # Run the container
 $CONTAINER_CMD run -it --rm \
     --name "$CONTAINER_NAME" \
+    --network host \
+    --security-opt label=disable \
     $ENV_ARGS \
     $MOUNT_ARGS \
     "$IMAGE_NAME" \

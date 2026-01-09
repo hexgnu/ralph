@@ -3,12 +3,19 @@
 # Runs as root to copy credentials, then drops to ralph user
 
 # Copy credentials from workspace (sandbox.sh puts them there)
+echo "DEBUG: Looking for /workspace/.host-claude"
+ls -la /workspace/ | grep -E '\.host|claude' || echo "DEBUG: No .host-claude found in /workspace"
 if [ -d /workspace/.host-claude ]; then
+    echo "DEBUG: Found .host-claude, copying to /home/ralph/.claude"
     mkdir -p /home/ralph/.claude
     cp -r /workspace/.host-claude/. /home/ralph/.claude/
     chown -R ralph:ralph /home/ralph/.claude
     chmod -R 700 /home/ralph/.claude
     rm -rf /workspace/.host-claude
+    echo "DEBUG: Done. Contents of /home/ralph/.claude:"
+    ls -la /home/ralph/.claude/
+else
+    echo "DEBUG: /workspace/.host-claude not found!"
 fi
 
 # Copy git config from workspace
@@ -26,6 +33,7 @@ case "${1:-}" in
         exec gosu ralph "$@"
         ;;
     *)
-        exec gosu ralph claude --dangerously-skip-permissions "$@"
+        gosu ralph claude --dangerously-skip-permissions "$@"
+        printf '\e[?1004l'
         ;;
 esac
