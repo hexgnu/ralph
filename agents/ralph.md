@@ -71,13 +71,18 @@ Ralph iterates until ALL stories have `"status": "completed"` or `"status": "blo
 
 9. **Run verification** - Execute commands from the story's `verification.commands` array, or default to typecheck/lint/test
 
+10. **Handle verification result**:
+    - **PASS**: Continue to Phase 3 (Commit)
+    - **FAIL**: Increment retry count, fix the issue, retry from step 9
+    - **After 3 failures**: Mark story as blocked (see Error Recovery below)
+
 ---
 
 ### Phase 3: COMMIT
 
-10. **Stage changes** - `git add` the relevant files
+11. **Stage changes** - `git add` the relevant files
 
-11. **Commit the code**
+12. **Commit the code**
     ```bash
     git commit -m "feat: [Story ID] - [Story Title]"
     ```
@@ -129,7 +134,7 @@ Append to `<prd-name>-progress.txt`:
 
 ### Phase 5: LOOP OR COMPLETE
 
-12. **Check stop condition again**
+13. **Check stop condition again**
     - Re-read the PRD file
     - If ALL stories have `"status": "completed"` or `"status": "blocked"`:
       - Run Marge in VERIFICATION MODE (see below)
@@ -153,6 +158,63 @@ Branch: [branch name]
 Verify all stories are properly implemented against their acceptance criteria.
 Check git log for commits. Run verification commands. Give final VERIFIED or FAILED verdict."
 ```
+
+---
+
+## ERROR RECOVERY
+
+### Story Fails Verification (3 times)
+
+When a story fails verification 3 times in a row:
+
+1. **Mark story as blocked**:
+   ```
+   Edit prd.json:
+   old_string: "status": "in_progress"
+   new_string: "status": "blocked"
+   ```
+
+2. **Add blocker to PRD**:
+   ```json
+   "blockers": [
+     {
+       "id": "BLK-001",
+       "storyId": "US-003",
+       "description": "Verification failed: [specific error message]",
+       "attempts": 3,
+       "lastError": "[error details]",
+       "status": "OPEN"
+     }
+   ]
+   ```
+
+3. **Log failure** to progress file with full error details
+
+4. **Continue to next story** - Don't let one blocked story stop all progress
+
+### Git Conflicts
+
+If you encounter a git conflict:
+
+1. **Attempt auto-resolution** using `git merge --strategy-option theirs` for minor conflicts
+2. **If complex conflict**: Add blocker describing the conflict, mark story blocked
+3. **Never force push** unless explicitly instructed
+
+### All Stories Blocked
+
+If ALL remaining stories are blocked:
+
+1. Output summary of all blockers
+2. Reply `<promise>BLOCKED</promise>` and STOP
+3. Human intervention required
+
+### Implementation Impossible
+
+If a story cannot be implemented (missing dependencies, unclear requirements):
+
+1. Mark story as blocked
+2. Add blocker with clear explanation
+3. Continue to next story
 
 ---
 

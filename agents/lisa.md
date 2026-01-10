@@ -182,12 +182,16 @@ The PRD filename will be specified in the prompt (e.g., `prd.json`, `prd-oauth.j
 3. `war-room-verdict.md` - Bart's chaos report
 4. PRD file (filename specified in prompt, default `prd.json`) - Ready for Ralph
 
-Initialize `progress.txt` with context:
+Initialize progress file (named `<prd-filename>-progress.txt`, e.g., `prd-progress.txt`):
 ```
 # Ralph Progress Log
 Feature: [name]
+PRD: [prd-filename].json
 Started: [date]
 Branch: ralph/[feature-name]
+
+## Codebase Patterns
+(Ralph will add patterns here as discovered)
 
 ## Context from Lisa & Bart
 - [Key insight from Gemba Walk]
@@ -208,9 +212,9 @@ Artifacts:
 - a3-analysis.md ✓
 - war-room-verdict.md ✓ (Bart's chaos report)
 - [prd-filename].json ✓ ([N] stories)
-- progress.txt initialized ✓
+- [prd-filename]-progress.txt initialized ✓
 
-Ready for Ralph: ./ralph.sh [prd-filename].json
+Ready for Ralph.
 ```
 
 ## Important Rules

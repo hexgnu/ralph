@@ -120,12 +120,12 @@ squash_commits() {
     MERGE_BASE=$(git merge-base "$BASE_BRANCH" HEAD)
 
     # Find Ralph's commits (those with US-XXX pattern)
-    RALPH_COMMITS=$(git log --oneline "$MERGE_BASE"..HEAD --grep="US-[0-9]" --format="%H")
+    RALPH_COMMITS=$(git log --oneline "$MERGE_BASE"..HEAD --grep="US-[0-9][0-9]*" --format="%H")
     RALPH_COMMIT_COUNT=$(echo "$RALPH_COMMITS" | grep -c . || echo 0)
 
     if [ "$RALPH_COMMIT_COUNT" -eq 0 ]; then
         echo -e "${RED}No Ralph commits found (looking for US-XXX pattern).${NC}"
-        echo "Ralph commits should have 'US-001', 'US-002', etc. in the message."
+        echo "Ralph commits should have 'US-001', 'US-002', 'US-100', etc. in the message."
         echo ""
         echo "All commits on branch:"
         git log --oneline "$MERGE_BASE"..HEAD
@@ -147,7 +147,7 @@ squash_commits() {
     echo ""
 
     echo "Ralph's commits (US-XXX):"
-    git log --oneline "$MERGE_BASE"..HEAD --grep="US-[0-9]"
+    git log --oneline "$MERGE_BASE"..HEAD --grep="US-[0-9][0-9]*"
     echo ""
 
     echo "Changes:"
@@ -155,7 +155,7 @@ squash_commits() {
     echo ""
 
     # Get Ralph's commit messages for context
-    COMMIT_MESSAGES=$(git log --format="- %s" "$MERGE_BASE"..HEAD --grep="US-[0-9]")
+    COMMIT_MESSAGES=$(git log --format="- %s" "$MERGE_BASE"..HEAD --grep="US-[0-9][0-9]*")
 
     # Get the diff for review (from squash base, not merge base)
     DIFF_STAT=$(git diff --stat "$SQUASH_BASE"..HEAD)
