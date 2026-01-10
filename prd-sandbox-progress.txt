@@ -19,8 +19,10 @@ Branch: ralph/worktree-sandbox
 ---
 
 ## US-001: Create worktree.sh with basic create and run functionality
-Status: IMPLEMENTING
+Status: COMPLETED
 Started: 2026-01-09
+Completed: 2026-01-09
+Commit: 3f65fae
 
 ### Verification Results:
 - [x] test -x worktree.sh (PASS)
@@ -43,4 +45,65 @@ Started: 2026-01-09
 - [x] Script provides helpful error when branch is already checked out elsewhere
 - [x] Script follows existing patterns from sandbox.sh (colors, header banners)
 - [x] Script is executable (chmod +x)
+---
+
+## US-002: Add worktree --list command
+Status: COMPLETED
+Completed: 2026-01-09
+Commit: 55b7325
+(Previously completed)
+---
+
+## US-003: Add worktree --create command
+Status: COMPLETED
+Started: 2026-01-09
+Completed: 2026-01-09
+
+### Verification Results:
+- [x] bash -n worktree.sh (PASS)
+- [x] ./worktree.sh --help (PASS - shows --create option)
+- [x] ./worktree.sh --create (no name) shows error (PASS)
+- [x] ./worktree.sh --create "my feature" shows validation error (PASS)
+
+### Acceptance Criteria Checklist:
+- [x] Add `--create <name>` flag that creates worktree without running Claude Code
+- [x] Uses same validation and branch creation as default command
+- [x] Shows path to created worktree for easy navigation
+- [x] Suggests next steps: 'cd ../ralph-worktrees/<name> to start working'
+- [x] Bash syntax check passes: bash -n worktree.sh
+
+### Implementation Notes:
+- Added --create/-c flag handler in main() function
+- Reuses existing create_worktree() function
+- Displays formatted success message with path, branch, and next steps
+- Shows alternative: run without --create to start Claude Code automatically
+---
+
+## US-004: Add worktree --remove command with safety checks
+Status: COMPLETED
+Started: 2026-01-09
+Completed: 2026-01-09
+
+### Verification Results:
+- [x] bash -n worktree.sh (PASS)
+- [x] ./worktree.sh --help (PASS - shows --remove option)
+- [x] ./worktree.sh --remove nonexistent-test shows error (PASS)
+
+### Acceptance Criteria Checklist:
+- [x] Add `--remove <name>` flag that removes a worktree
+- [x] Prompts for confirmation before deleting
+- [x] Warns and requires --force if worktree has uncommitted changes
+- [x] Offers option to also delete the branch (default: no)
+- [x] Error handling for removing non-existent worktree
+- [x] Does NOT delete remote branches (local only) - Note in output
+- [x] Bash syntax check passes: bash -n worktree.sh
+
+### Implementation Notes:
+- Added remove_worktree() function with comprehensive safety checks
+- Checks for uncommitted changes with git diff --quiet
+- Requires --force flag if worktree is dirty
+- Prompts for y/N confirmation before any deletion
+- --delete-branch/-d flag optionally deletes local branch
+- Explicitly notes that remote branches are NOT deleted
+- Shows available worktrees if specified one doesn't exist
 ---

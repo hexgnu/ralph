@@ -41,6 +41,8 @@ print_help() {
     print_header
     echo ""
     echo "Usage: ./worktree.sh <feature-name>"
+    echo "       ./worktree.sh --create <feature-name>"
+    echo "       ./worktree.sh --remove <feature-name> [--force] [--delete-branch]"
     echo "       ./worktree.sh --list"
     echo "       ./worktree.sh --help"
     echo ""
@@ -52,20 +54,23 @@ print_help() {
     echo "  <feature-name>   Name for the feature (alphanumeric, hyphens, underscores)"
     echo ""
     echo "Options:"
-    echo "  --list           List all ralph worktrees with status"
-    echo "  --help           Show this help message"
+    echo "  --create <name>   Create worktree without starting Claude Code"
+    echo "  --remove <name>   Remove a worktree (prompts for confirmation)"
+    echo "    --force         Force removal even if worktree has uncommitted changes"
+    echo "    --delete-branch Also delete the local branch after removing worktree"
+    echo "  --list            List all ralph worktrees with status"
+    echo "  --help            Show this help message"
     echo ""
     echo "Examples:"
-    echo "  ./worktree.sh add-oauth        # Create worktree and start Claude Code"
-    echo "  ./worktree.sh my_feature       # Underscores are allowed"
-    echo "  ./worktree.sh --list           # Show all worktrees"
+    echo "  ./worktree.sh add-oauth              # Create worktree and start Claude Code"
+    echo "  ./worktree.sh my_feature             # Underscores are allowed"
+    echo "  ./worktree.sh --create oauth         # Create worktree only (no Claude Code)"
+    echo "  ./worktree.sh --remove oauth         # Remove worktree (keeps branch)"
+    echo "  ./worktree.sh --remove oauth --delete-branch  # Remove worktree and branch"
+    echo "  ./worktree.sh --list                 # Show all worktrees"
     echo ""
     echo "Worktrees are created at: $WORKTREE_BASE/<feature-name>"
     echo "Branches are named: ralph/<feature-name>"
-    echo ""
-    echo "To clean up:"
-    echo "  cd $WORKTREE_BASE/<feature-name>"
-    echo "  git worktree remove <feature-name>"
     echo ""
 }
 
@@ -157,6 +162,120 @@ check_prerequisites() {
         echo "Install Claude Code: https://claude.ai/code"
         exit 1
     fi
+}
+
+# Remove a worktree with safety checks
+remove_worktree() {
+    local feature_name="$1"
+    local force_remove="$2"
+    local delete_branch="$3"
+
+    # Get absolute path to worktree base
+    local worktree_base_abs
+    worktree_base_abs=$(cd "$SCRIPT_DIR" && cd "$WORKTREE_BASE" 2>/dev/null && pwd) || worktree_base_abs=""
+
+    local worktree_path="$worktree_base_abs/$feature_name"
+    local branch_name="ralph/$feature_name"
+
+    # Check if worktree exists
+    if [ ! -d "$worktree_path" ]; then
+        echo -e "${RED}Error: Worktree '$feature_name' does not exist${NC}"
+        echo ""
+        echo "Available worktrees:"
+        if [ -n "$worktree_base_abs" ] && [ -d "$worktree_base_abs" ]; then
+            for dir in "$worktree_base_abs"/*/; do
+                [ -d "$dir" ] && echo "  - $(basename "$dir")"
+            done
+        else
+            echo "  (none)"
+        fi
+        echo ""
+        echo "Use './worktree.sh --list' to see all worktrees"
+        exit 1
+    fi
+
+    # Check if it's actually a git worktree
+    if [ ! -f "$worktree_path/.git" ]; then
+        echo -e "${RED}Error: '$worktree_path' is not a git worktree${NC}"
+        exit 1
+    fi
+
+    # Check for uncommitted changes
+    local is_dirty=false
+    if ! (cd "$worktree_path" && git diff --quiet 2>/dev/null && git diff --cached --quiet 2>/dev/null); then
+        is_dirty=true
+    fi
+
+    # If dirty and not forced, warn and exit
+    if [ "$is_dirty" = true ] && [ "$force_remove" != "true" ]; then
+        echo -e "${RED}Error: Worktree '$feature_name' has uncommitted changes${NC}"
+        echo ""
+        echo "Uncommitted changes:"
+        (cd "$worktree_path" && git status --short)
+        echo ""
+        echo "Options:"
+        echo "  1. Commit or stash your changes first"
+        echo "  2. Use --force to discard changes and remove anyway:"
+        echo "     ./worktree.sh --remove $feature_name --force"
+        exit 1
+    fi
+
+    # Prompt for confirmation
+    echo -e "${YELLOW}About to remove worktree:${NC}"
+    echo "  Name:   $feature_name"
+    echo "  Path:   $worktree_path"
+    echo "  Branch: $branch_name"
+    if [ "$is_dirty" = true ]; then
+        echo -e "  Status: ${RED}dirty (uncommitted changes will be lost!)${NC}"
+    else
+        echo -e "  Status: ${GREEN}clean${NC}"
+    fi
+    if [ "$delete_branch" = "true" ]; then
+        echo -e "  ${YELLOW}Branch will also be deleted (local only)${NC}"
+    fi
+    echo ""
+
+    # Read confirmation
+    read -r -p "Are you sure you want to remove this worktree? [y/N] " response
+    case "$response" in
+        [yY][eE][sS]|[yY])
+            ;;
+        *)
+            echo "Aborted."
+            exit 0
+            ;;
+    esac
+
+    # Remove the worktree
+    echo ""
+    echo -e "${YELLOW}Removing worktree...${NC}"
+
+    if [ "$force_remove" = "true" ]; then
+        git worktree remove --force "$worktree_path"
+    else
+        git worktree remove "$worktree_path"
+    fi
+
+    echo -e "${GREEN}Worktree removed: $worktree_path${NC}"
+
+    # Optionally delete the branch
+    if [ "$delete_branch" = "true" ]; then
+        # Check if branch exists
+        if git show-ref --verify --quiet "refs/heads/$branch_name" 2>/dev/null; then
+            echo -e "${YELLOW}Deleting local branch: $branch_name${NC}"
+            git branch -D "$branch_name"
+            echo -e "${GREEN}Branch deleted: $branch_name${NC}"
+        else
+            echo -e "${YELLOW}Branch '$branch_name' does not exist (already deleted or never created)${NC}"
+        fi
+        echo ""
+        echo -e "${YELLOW}Note: Remote branch (if any) was NOT deleted.${NC}"
+        echo "To delete remote branch, run:"
+        echo "  git push origin --delete $branch_name"
+    fi
+
+    echo ""
+    echo -e "${GREEN}Done!${NC}"
 }
 
 # List all ralph worktrees with status
@@ -302,6 +421,80 @@ main() {
     # Handle --list
     if [ "$1" = "--list" ] || [ "$1" = "-l" ]; then
         list_worktrees
+        exit 0
+    fi
+
+    # Handle --create
+    if [ "$1" = "--create" ] || [ "$1" = "-c" ]; then
+        local feature_name="$2"
+
+        # Check prerequisites first
+        check_prerequisites
+
+        # Validate feature name
+        validate_feature_name "$feature_name"
+
+        # Print header
+        print_header
+
+        # Print security warning
+        print_security_warning
+
+        # Create worktree (without starting Claude Code)
+        local worktree_path
+        worktree_path=$(create_worktree "$feature_name")
+
+        echo ""
+        echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
+        echo -e "${GREEN}  Worktree created successfully!${NC}"
+        echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
+        echo ""
+        echo -e "Path: ${CYAN}$worktree_path${NC}"
+        echo -e "Branch: ${CYAN}ralph/$feature_name${NC}"
+        echo ""
+        echo -e "${YELLOW}Next steps:${NC}"
+        echo "  cd $worktree_path"
+        echo "  claude --dangerously-skip-permissions  # Start Claude Code"
+        echo ""
+        echo "Or run without --create to start Claude Code automatically:"
+        echo "  ./worktree.sh $feature_name"
+        echo ""
+        exit 0
+    fi
+
+    # Handle --remove
+    if [ "$1" = "--remove" ] || [ "$1" = "-r" ]; then
+        local feature_name="$2"
+        local force_remove="false"
+        local delete_branch="false"
+
+        # Parse additional flags
+        shift 2 || true
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --force|-f)
+                    force_remove="true"
+                    ;;
+                --delete-branch|-d)
+                    delete_branch="true"
+                    ;;
+                *)
+                    echo -e "${RED}Error: Unknown option '$1'${NC}"
+                    echo "Usage: ./worktree.sh --remove <name> [--force] [--delete-branch]"
+                    exit 1
+                    ;;
+            esac
+            shift
+        done
+
+        # Validate feature name
+        validate_feature_name "$feature_name"
+
+        # Print header
+        print_header
+
+        # Remove worktree with safety checks
+        remove_worktree "$feature_name" "$force_remove" "$delete_branch"
         exit 0
     fi
 

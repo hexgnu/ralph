@@ -67,7 +67,7 @@
       "priority": 2,
       "status": "completed",
       "security": false,
-      "commits": [],
+      "commits": ["55b7325"],
       "notes": "Split from original US-002 per Bart's recommendation"
     },
     {
@@ -91,10 +91,10 @@
         ]
       },
       "priority": 3,
-      "status": "pending",
+      "status": "completed",
       "security": false,
       "commits": [],
-      "notes": "Split from original US-002 per Bart's recommendation"
+      "notes": "Split from original US-002 per Bart's recommendation. Added --create/-c flag with full validation and helpful next steps output."
     },
     {
       "id": "US-004",
@@ -120,10 +120,10 @@
         ]
       },
       "priority": 4,
-      "status": "pending",
+      "status": "completed",
       "security": false,
       "commits": [],
-      "notes": "Split from original US-002 per Bart's recommendation. Safety is critical."
+      "notes": "Added --remove/-r command with comprehensive safety: confirmation prompt, dirty worktree detection (requires --force), optional --delete-branch for local branch cleanup, clear instructions for remote branch deletion."
     },
     {
       "id": "US-005",
