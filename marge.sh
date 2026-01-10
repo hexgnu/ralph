@@ -45,7 +45,7 @@ usage() {
 stream_claude() {
     local prompt="$1"
 
-    claude --dangerously-skip-permissions --verbose --output-format stream-json -p "$prompt" 2>&1 | while IFS= read -r line; do
+    claude --agent marge --dangerously-skip-permissions --verbose --output-format stream-json -p "$prompt" 2>&1 | while IFS= read -r line; do
         # Skip non-JSON lines
         if ! echo "$line" | jq -e '.' >/dev/null 2>&1; then
             continue
@@ -124,7 +124,9 @@ git diff --staged --stat
 echo ""
 
 # Build prompt
-PROMPT="As the marge agent: Review the staged changes (git diff --staged) for security, architecture, outage risk, and complexity.
+PROMPT="DIFF REVIEW MODE
+
+As the marge agent: Review the staged changes (git diff --staged) for security, architecture, outage risk, and complexity.
 
 You BLOCK for:
 - Security vulnerabilities (OWASP top 10)
@@ -137,18 +139,35 @@ You DO NOT block for:
 - Missing nice-to-have tests
 - Theoretical future problems
 
-Output either COMMIT or REJECT.
+Output either COMMIT or REJECT using the exact format below.
 
 If COMMIT:
 MARGE VERDICT: COMMIT
-- Brief summary of what was reviewed
-- Any notes for the developer
+
+Reviewed: [N files, M lines changed]
+
+Checks:
+- Security: PASS
+- Architecture: PASS
+- Outage Risk: PASS
+- Simplicity: PASS
+- Operability: PASS
+
+COMMIT_MESSAGE:
+<type>(<scope>): <subject>
+
+<body - what changed and why>
+
+Where type is: feat | fix | refactor | docs | test | chore | perf | style
 
 If REJECT:
 MARGE VERDICT: REJECT
-- What's wrong (specific file:line)
-- Why it's a real problem
-- How to fix it"
+
+Blocking Issue:
+- Category: [Security | Architecture | Outage | Complexity | Operability]
+- File: [path:line]
+- Confidence: HIGH
+- What's wrong and how to fix it"
 
 if [ -n "$CONTEXT" ]; then
     PROMPT="$PROMPT
@@ -172,6 +191,23 @@ else
     echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
     echo -e "${GREEN}  MARGE VERDICT: COMMIT${NC}"
     echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-    echo "Safe to commit."
+    echo ""
+
+    # Extract commit message (everything after COMMIT_MESSAGE: to end)
+    COMMIT_MSG=$(echo "$RESULT" | awk '/COMMIT_MESSAGE:/{found=1; next} found{print}' | sed 's/^[[:space:]]*//')
+
+    if [ -n "$COMMIT_MSG" ]; then
+        echo -e "${CYAN}Suggested commit message:${NC}"
+        echo "────────────────────────────────────────────────────────"
+        echo "$COMMIT_MSG"
+        echo "────────────────────────────────────────────────────────"
+        echo ""
+        echo "To commit, run:"
+        echo "  git commit -m \"\$COMMIT_MSG\""
+        echo ""
+        echo "Or copy the message above."
+    else
+        echo "Safe to commit. (No commit message generated)"
+    fi
     exit 0
 fi

@@ -199,8 +199,27 @@ Checks:
 - Simplicity: PASS
 - Operability: PASS
 
-Notes for progress.txt:
-- [Optional observations for future iterations]
+COMMIT_MESSAGE:
+<type>(<scope>): <subject>
+
+<body - what changed and why>
+```
+
+**IMPORTANT: The COMMIT_MESSAGE section is REQUIRED.** This will be parsed by the calling script to run `git commit`. Write a proper conventional commit message:
+
+- **type**: feat | fix | refactor | docs | test | chore | perf | style
+- **scope**: The area of the codebase affected (optional but preferred)
+- **subject**: Imperative mood, no period, max 50 chars
+- **body**: Explain WHAT changed and WHY (not HOW - the diff shows that)
+
+Example:
+```
+COMMIT_MESSAGE:
+feat(workflow): add tool selector for AI agent actions
+
+Allow users to select specific tools when configuring AI agent nodes
+in workflows. This enables more granular control over agent capabilities
+and reduces unnecessary API calls.
 ```
 
 ### If REJECT:
