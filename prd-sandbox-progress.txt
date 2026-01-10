@@ -1,0 +1,46 @@
+# Ralph Progress Log
+Feature: Git Worktree Sandbox
+PRD: prd-sandbox.json
+Started: 2026-01-09
+Branch: ralph/worktree-sandbox
+
+## Codebase Patterns
+- sandbox.sh uses set -e, color variables (RED/GREEN/YELLOW/NC), print header banners
+- Default branch detection: git symbolic-ref refs/remotes/origin/HEAD with fallback to common names
+- Input validation with clear error messages and usage examples
+
+## Context from Lisa & Bart
+- Default branch detection is critical: use `git symbolic-ref refs/remotes/origin/HEAD`
+- Feature name validation: only alphanumeric, hyphens, underscores allowed
+- Security warning is mandatory: worktree has full host filesystem access
+- Worktree location: `../ralph-worktrees/<name>` keeps worktrees organized outside main repo
+- Follow sandbox.sh patterns for colors and header banners
+- Merge workflow must be documented - users won't know how to get changes back to main
+---
+
+## US-001: Create worktree.sh with basic create and run functionality
+Status: IMPLEMENTING
+Started: 2026-01-09
+
+### Verification Results:
+- [x] test -x worktree.sh (PASS)
+- [x] bash -n worktree.sh (PASS)
+- [x] ./worktree.sh --help (PASS)
+- [x] Invalid name './worktree.sh my feature' shows error (PASS)
+
+### Acceptance Criteria Checklist:
+- [x] Create worktree.sh script in project root
+- [x] Running `./worktree.sh <feature-name>` creates worktree at ../ralph-worktrees/<feature-name>
+- [x] Script auto-detects default branch (main/master/trunk) using git symbolic-ref
+- [x] Script creates branch `ralph/<feature-name>` from detected default branch
+- [x] Script validates feature name: only alphanumeric, hyphens, underscores allowed
+- [x] Script rejects invalid names with helpful error message
+- [x] Script creates parent directory `../ralph-worktrees/` if it doesn't exist
+- [x] Script changes to worktree directory and runs Claude Code with --dangerously-skip-permissions
+- [x] Script prints security warning banner
+- [x] If worktree already exists, script uses existing worktree without error
+- [x] Script detects if git worktree command is available, exits with helpful message if not
+- [x] Script provides helpful error when branch is already checked out elsewhere
+- [x] Script follows existing patterns from sandbox.sh (colors, header banners)
+- [x] Script is executable (chmod +x)
+---
