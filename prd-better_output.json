@@ -1,0 +1,376 @@
+{
+  "project": "Ralph",
+  "branchName": "ralph/better-output",
+  "description": "Improve CLI output quality so users can understand what Ralph/Lisa are doing during execution",
+  "prdFile": "prd-better_output.json",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create lib/output.sh with core formatting functions",
+      "description": "As a developer, I want a shared output library so that all scripts have consistent, rich output formatting.",
+      "acceptanceCriteria": [
+        "Create lib/ directory in project root if it doesn't exist",
+        "Create lib/output.sh in project root",
+        "Add TTY detection: disable colors when stdout is not a terminal (check [[ -t 1 ]])",
+        "Add color constants: RED, GREEN, YELLOW, CYAN, NC (empty when not TTY)",
+        "Add print_header() function that displays agent name and optional elapsed time",
+        "Add print_tool() function that formats tool invocations with arrow prefix",
+        "Add print_success() function that shows green checkmark + message",
+        "Add print_error() function that shows red X + message",
+        "Add print_info() function for general informational output",
+        "Add check_dependencies() function that verifies jq is installed with helpful error",
+        "Use printf instead of echo -e for BSD/GNU portability",
+        "All functions handle empty string arguments gracefully",
+        "Guard against double-sourcing (check if OUTPUT_SH_LOADED is set)",
+        "Script is sourceable (no side effects on source)",
+        "Works with bash 3.2+ (macOS compatibility)",
+        "Bash syntax check passes: bash -n lib/output.sh"
+      ],
+      "verification": {
+        "commands": [
+          "test -d lib",
+          "test -f lib/output.sh",
+          "bash -n lib/output.sh"
+        ],
+        "manualChecks": [
+          "Source the library and test each function outputs correctly",
+          "Test with stdout redirected: verify no ANSI escapes in output"
+        ]
+      },
+      "priority": 1,
+      "status": "in_progress",
+      "security": false,
+      "commits": [],
+      "notes": "Foundation for all other output improvements. Bart's fixes: TTY detection, jq check, portability"
+    },
+    {
+      "id": "US-002",
+      "title": "Add tool result parsing to output library",
+      "description": "As a user, I want to see tool results (success/failure) so that I know if commands succeeded.",
+      "acceptanceCriteria": [
+        "Add parse_tool_result() function to lib/output.sh",
+        "Function calls check_dependencies() to verify jq before parsing",
+        "Function extracts exit code from tool result JSON (handle missing field)",
+        "Function extracts first N lines of output (default 5, configurable)",
+        "Error detection is case-insensitive",
+        "Detect error patterns: 'error', 'failed', 'exception', 'permission denied', 'no such file', 'command not found'",
+        "Add print_tool_result() that shows success/failure with truncated output",
+        "Truncation shows '[... N more lines]' when output exceeds limit",
+        "Truncate single lines longer than 500 chars with '...'",
+        "Error results are printed in red (when TTY)",
+        "Success results show green checkmark (when TTY)",
+        "Handle malformed JSON gracefully (return error, don't crash)",
+        "Bash syntax check passes: bash -n lib/output.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n lib/output.sh"
+        ],
+        "manualChecks": [
+          "Test parse_tool_result with sample JSON containing success",
+          "Test parse_tool_result with sample JSON containing error",
+          "Test with missing jq - verify helpful error message"
+        ]
+      },
+      "priority": 2,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Bart's fixes: jq check, case-insensitive errors, more error patterns, line truncation"
+    },
+    {
+      "id": "US-003",
+      "title": "Add story progress tracking to output library",
+      "description": "As a user, I want to see which story is being worked on and overall progress so I know how far along the work is.",
+      "acceptanceCriteria": [
+        "Add get_story_progress() function to lib/output.sh",
+        "Function accepts PRD file path as argument (don't hardcode 'prd.json')",
+        "Function reads PRD file and counts stories by status using jq",
+        "Function returns: current story ID, current story title, completed count, total count",
+        "Add print_story_header() that displays '[US-XXX/Y] Story Title'",
+        "Add print_story_complete() that displays completion message with duration",
+        "Handle missing PRD file gracefully (show 'unknown' or defaults)",
+        "Handle invalid JSON gracefully (show 'unknown' or defaults)",
+        "Handle zero stories gracefully (show '0/0')",
+        "Bash syntax check passes: bash -n lib/output.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n lib/output.sh"
+        ],
+        "manualChecks": [
+          "Test with sample prd.json, verify correct count",
+          "Test with missing prd.json, verify graceful handling",
+          "Test with empty userStories array"
+        ]
+      },
+      "priority": 3,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Bart's fixes: accept PRD path as argument, handle edge cases"
+    },
+    {
+      "id": "US-004",
+      "title": "Add elapsed time tracking to output library",
+      "description": "As a user, I want to see how long operations are taking so I can estimate when they'll complete.",
+      "acceptanceCriteria": [
+        "Add init_timer() function that records start time using bash SECONDS variable",
+        "Add get_elapsed() function that returns elapsed seconds since start",
+        "Add format_elapsed() function with clear thresholds:",
+        "  - Under 60 seconds: show as 'Xs' (e.g., '45s')",
+        "  - 60-3599 seconds: show as 'Xm Ys' (e.g., '5m 30s')",
+        "  - 3600+ seconds: show as 'HH:MM:SS' (e.g., '02:15:30')",
+        "Never display negative time (return '0s' if clock went backwards)",
+        "Support elapsed time exceeding 24 hours (don't cap at 23:59:59)",
+        "Use bash SECONDS variable for BSD/GNU portability (no date command)",
+        "Bash syntax check passes: bash -n lib/output.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n lib/output.sh"
+        ],
+        "manualChecks": [
+          "Test format_elapsed with various durations (5, 65, 3665, 90000 seconds)",
+          "Test timer functions work correctly"
+        ]
+      },
+      "priority": 4,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Bart's fixes: use SECONDS for portability, define thresholds, handle >24h"
+    },
+    {
+      "id": "US-005",
+      "title": "Add core JSON stream parsing to output library",
+      "description": "As a developer, I want a function to parse Claude's stream-json output line by line.",
+      "acceptanceCriteria": [
+        "Add parse_stream_line() function to lib/output.sh",
+        "Function takes a JSON line and extracts message type",
+        "Function handles 'assistant' type: extracts tool name, tool input, text content",
+        "Function handles 'result' type: extracts tool output, exit code",
+        "Function handles unknown types gracefully (log and skip)",
+        "Function returns extracted fields via stdout or global variables",
+        "Handle malformed/partial JSON gracefully (skip line, don't crash)",
+        "Bash syntax check passes: bash -n lib/output.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n lib/output.sh"
+        ],
+        "manualChecks": [
+          "Test with sample stream-json lines of each type",
+          "Test with malformed JSON - verify no crash"
+        ]
+      },
+      "priority": 5,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Split from original US-005 per Bart. Core parsing only."
+    },
+    {
+      "id": "US-006",
+      "title": "Add stream_claude_rich() main loop function",
+      "description": "As a developer, I want a comprehensive stream parser that uses all the output library functions.",
+      "acceptanceCriteria": [
+        "Add stream_claude_rich() function to lib/output.sh",
+        "Function reads from stdin line by line",
+        "Function uses parse_stream_line() for JSON parsing",
+        "Function uses print_tool() for tool invocations",
+        "Function uses print_tool_result() for tool results",
+        "Function outputs assistant text responses directly",
+        "Function accepts optional output file path for completion detection",
+        "If output file provided, write assistant text to it",
+        "Add trap handler to clean up output file on SIGINT/SIGTERM",
+        "Handle partial/malformed JSON gracefully (skip line)",
+        "Bash syntax check passes: bash -n lib/output.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n lib/output.sh"
+        ],
+        "manualChecks": [
+          "Test with sample stream-json output",
+          "Test Ctrl+C during streaming - verify cleanup"
+        ]
+      },
+      "priority": 6,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Split from original US-005 per Bart. Main loop using all parsers."
+    },
+    {
+      "id": "US-007",
+      "title": "Migrate ralph.sh to use output library",
+      "description": "As a user running Ralph, I want to see rich output including story progress and tool results.",
+      "acceptanceCriteria": [
+        "ralph.sh sources lib/output.sh using SCRIPT_DIR-relative path",
+        "Add fallback error if lib/output.sh not found",
+        "Remove duplicate stream_claude() function from ralph.sh",
+        "Use stream_claude_rich() for Claude output",
+        "Call init_timer() at start",
+        "Show story progress header when story changes",
+        "Show elapsed time in header",
+        "Show tool results (success/failure)",
+        "Show story completion with duration",
+        "Maintain completion detection (COMPLETE promise) - test explicitly",
+        "Bash syntax check passes: bash -n ralph.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n ralph.sh",
+          "grep -q 'source.*lib/output.sh' ralph.sh"
+        ],
+        "manualChecks": [
+          "Run ralph.sh with test prd.json, verify rich output",
+          "Verify completion detection still works",
+          "Run from /tmp directory, verify lib/output.sh found"
+        ]
+      },
+      "priority": 7,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Bart's fixes: path resolution, test completion detection"
+    },
+    {
+      "id": "US-008",
+      "title": "Migrate lisa.sh to use output library",
+      "description": "As a user running Lisa for planning, I want to see rich output during the planning process.",
+      "acceptanceCriteria": [
+        "lisa.sh sources lib/output.sh using SCRIPT_DIR-relative path",
+        "Add fallback error if lib/output.sh not found",
+        "Remove duplicate stream_claude() function from lisa.sh",
+        "Use stream_claude_rich() for Claude output",
+        "Call init_timer() at start",
+        "Show elapsed time in header",
+        "Show tool results for file operations",
+        "Bash syntax check passes: bash -n lisa.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n lisa.sh",
+          "grep -q 'source.*lib/output.sh' lisa.sh"
+        ],
+        "manualChecks": [
+          "Run lisa.sh with test prompt, verify rich output"
+        ]
+      },
+      "priority": 8,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Bart's fix: removed phase detection (not feasible)"
+    },
+    {
+      "id": "US-009",
+      "title": "Migrate marge.sh to use output library",
+      "description": "As a developer, marge.sh also has stream_claude() that needs migration.",
+      "acceptanceCriteria": [
+        "marge.sh sources lib/output.sh using SCRIPT_DIR-relative path",
+        "Add fallback error if lib/output.sh not found",
+        "Remove duplicate stream_claude() function from marge.sh",
+        "Use stream_claude_rich() for Claude output",
+        "Bash syntax check passes: bash -n marge.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n marge.sh",
+          "grep -q 'source.*lib/output.sh' marge.sh"
+        ],
+        "manualChecks": [
+          "Run marge.sh, verify rich output"
+        ]
+      },
+      "priority": 9,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Bart identified marge.sh was missing from original PRD"
+    },
+    {
+      "id": "US-010",
+      "title": "Migrate bart.sh to use output library",
+      "description": "As a developer, bart.sh also has stream_claude() that needs migration.",
+      "acceptanceCriteria": [
+        "bart.sh sources lib/output.sh using SCRIPT_DIR-relative path",
+        "Add fallback error if lib/output.sh not found",
+        "Remove duplicate stream_claude() function from bart.sh",
+        "Use stream_claude_rich() for Claude output",
+        "All bart.sh modes work: --prd, --branch, custom prompt",
+        "Bash syntax check passes: bash -n bart.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n bart.sh"
+        ],
+        "manualChecks": [
+          "Test bart.sh --prd, verify rich output",
+          "Test bart.sh --branch, verify rich output"
+        ]
+      },
+      "priority": 10,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Split from US-008 per Bart"
+    },
+    {
+      "id": "US-011",
+      "title": "Migrate claude-stream.sh to use output library",
+      "description": "As a developer, claude-stream.sh should use the shared output library.",
+      "acceptanceCriteria": [
+        "claude-stream.sh sources lib/output.sh using SCRIPT_DIR-relative path",
+        "Add fallback error if lib/output.sh not found",
+        "Remove duplicate streaming code from claude-stream.sh",
+        "Use stream_claude_rich() for Claude output",
+        "Works correctly when piped: ./claude-stream.sh 'prompt' | grep something",
+        "Bash syntax check passes: bash -n claude-stream.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n claude-stream.sh"
+        ],
+        "manualChecks": [
+          "Run claude-stream.sh with test prompt",
+          "Test piping output to grep/head"
+        ]
+      },
+      "priority": 11,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Split from US-008 per Bart"
+    },
+    {
+      "id": "US-012",
+      "title": "Update documentation for new output features",
+      "description": "As a user, I want documentation explaining the output format so I can understand what I'm seeing.",
+      "acceptanceCriteria": [
+        "Update README.md with 'Output Format' section",
+        "Document what each output element means (progress, timing, results)",
+        "Include example output showing rich format (can be text, no screenshot required)",
+        "Update CLAUDE.md with lib/output.sh reference in Key Files table",
+        "Document how to interpret error vs success output",
+        "Document TTY vs non-TTY behavior (colors disabled in pipes)",
+        "No broken markdown formatting"
+      ],
+      "verification": {
+        "commands": [],
+        "manualChecks": [
+          "Review README.md output section",
+          "Verify examples match actual output"
+        ]
+      },
+      "priority": 12,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Moved to end per Bart - after all migrations complete"
+    }
+  ],
+  "blockers": []
+}
