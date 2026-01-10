@@ -2,6 +2,11 @@
 # Lisa → Ralph → Marge workflow runs safely in here
 FROM node:22-slim
 
+# OCI Labels (required by hadolint strict mode)
+LABEL maintainer="Ralph Project"
+LABEL org.opencontainers.image.source="https://github.com/hexgnu/ralph"
+LABEL org.opencontainers.image.description="Ralph autonomous AI agent sandbox environment"
+
 # Install dependencies and create ralph user
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,6 +31,8 @@ RUN git config --global init.defaultBranch main
 USER root
 
 # Copy entrypoint script
+# hadolint ignore=DL3002
+# Intentionally stay root - entrypoint.sh uses gosu to drop to ralph after copying credentials
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
 
 # Project gets copied here (not mounted = true isolation)

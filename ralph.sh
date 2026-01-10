@@ -27,7 +27,6 @@ else
   MAX_ITERATIONS=${1:-10}
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="$(pwd)"
 PRD_FILE="${PRD_ARG:-$WORK_DIR/prd.json}"
 # Make relative paths absolute

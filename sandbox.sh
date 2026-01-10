@@ -47,7 +47,7 @@ fi
 
 # Create a temporary directory for the workspace
 TEMP_WORKSPACE=$(mktemp -d)
-trap "rm -rf $TEMP_WORKSPACE" EXIT
+trap 'rm -rf "$TEMP_WORKSPACE"' EXIT
 
 # Copy current project to temp workspace (true isolation - not mounted)
 echo -e "${YELLOW}Copying project to sandbox...${NC}"

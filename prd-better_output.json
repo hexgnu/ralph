@@ -40,7 +40,9 @@
       "priority": 1,
       "status": "completed",
       "security": false,
-      "commits": ["04bf125"],
+      "commits": [
+        "04bf125"
+      ],
       "notes": "Foundation for all other output improvements. Bart's fixes: TTY detection, jq check, portability"
     },
     {
@@ -75,7 +77,9 @@
       "priority": 2,
       "status": "completed",
       "security": false,
-      "commits": [],
+      "commits": [
+        "5df6a89"
+      ],
       "notes": "Bart's fixes: jq check, case-insensitive errors, more error patterns, line truncation"
     },
     {
@@ -105,10 +109,10 @@
         ]
       },
       "priority": 3,
-      "status": "pending",
+      "status": "completed",
       "security": false,
       "commits": [],
-      "notes": "Bart's fixes: accept PRD path as argument, handle edge cases"
+      "notes": "Bart's fixes: accept PRD path as argument, handle edge cases. Implemented get_story_progress(), print_story_header(), print_story_complete()"
     },
     {
       "id": "US-004",
@@ -136,10 +140,10 @@
         ]
       },
       "priority": 4,
-      "status": "pending",
+      "status": "completed",
       "security": false,
       "commits": [],
-      "notes": "Bart's fixes: use SECONDS for portability, define thresholds, handle >24h"
+      "notes": "Bart's fixes: use SECONDS for portability, define thresholds, handle >24h. Implemented init_timer(), get_elapsed(), format_elapsed() with all acceptance criteria met."
     },
     {
       "id": "US-005",
@@ -165,10 +169,10 @@
         ]
       },
       "priority": 5,
-      "status": "pending",
+      "status": "completed",
       "security": false,
       "commits": [],
-      "notes": "Split from original US-005 per Bart. Core parsing only."
+      "notes": "Implemented parse_stream_line() with global variables STREAM_TYPE, STREAM_TOOL_NAME, STREAM_TOOL_INPUT, STREAM_TEXT, STREAM_RESULT_OUTPUT, STREAM_RESULT_EXIT. Handles all message types and gracefully handles malformed JSON."
     },
     {
       "id": "US-006",

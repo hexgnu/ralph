@@ -1,0 +1,33 @@
+# ShellCheck configuration - AGGRESSIVE mode
+# https://www.shellcheck.net/wiki/
+
+# Shell dialect (bash)
+shell=bash
+
+# Enable specific optional checks (explicit is better than `enable=all` which breaks on future ShellCheck versions)
+enable=check-unassigned-uppercase
+enable=require-variable-braces
+enable=quote-safe-variables
+enable=avoid-nullary-conditions
+
+# Treat warnings as errors in CI
+# (Use shellcheck -S error for CI, this file sets baseline)
+
+# Specific enables for maximum strictness:
+# - check-unassigned-uppercase: Warn about unassigned uppercase variables
+# - require-variable-braces: Require ${var} instead of $var
+# - quote-safe-variables: Require quoting even for safe variables
+# - avoid-nullary-conditions: Avoid [ -n ] style conditions
+
+# External sources - allow sourcing files
+external-sources=true
+
+# Source path for finding sourced files
+source-path=SCRIPTDIR
+source-path=lib
+
+# Disable specific checks only with documented justification:
+# (Currently none disabled - we want maximum strictness)
+
+# For any future disables, document like this:
+# disable=SC2034  # Reason: Variable used in sourced script

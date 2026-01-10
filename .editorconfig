@@ -1,0 +1,48 @@
+# EditorConfig - consistent formatting across editors
+# https://editorconfig.org
+
+root = true
+
+# Default for all files
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Shell scripts - 2 space indent (shfmt default)
+[*.sh]
+indent_style = space
+indent_size = 2
+# shfmt flags: -i 2 -bn -ci -sr
+# -i 2: 2 space indent
+# -bn: binary ops at start of line
+# -ci: indent switch cases
+# -sr: redirect operators spacing
+
+# Makefiles require tabs
+[Makefile]
+indent_style = tab
+indent_size = 4
+
+# Dockerfile
+[Dockerfile]
+indent_style = space
+indent_size = 4
+
+# YAML files
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# JSON files
+[*.json]
+indent_style = space
+indent_size = 2
+
+# Markdown
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2

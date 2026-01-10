@@ -39,7 +39,9 @@
       "priority": 1,
       "status": "completed",
       "security": false,
-      "commits": ["3f65fae"],
+      "commits": [
+        "3f65fae"
+      ],
       "notes": "Core functionality with Bart's critical fixes: default branch detection, name validation, security warning"
     },
     {
@@ -67,7 +69,9 @@
       "priority": 2,
       "status": "completed",
       "security": false,
-      "commits": ["55b7325"],
+      "commits": [
+        "55b7325"
+      ],
       "notes": "Split from original US-002 per Bart's recommendation"
     },
     {
@@ -122,7 +126,9 @@
       "priority": 4,
       "status": "completed",
       "security": false,
-      "commits": ["71f4e2e"],
+      "commits": [
+        "71f4e2e"
+      ],
       "notes": "Added --remove/-r command with comprehensive safety: confirmation prompt, dirty worktree detection (requires --force), optional --delete-branch for local branch cleanup, clear instructions for remote branch deletion."
     },
     {
@@ -152,7 +158,9 @@
       "priority": 5,
       "status": "completed",
       "security": false,
-      "commits": ["864ec87"],
+      "commits": [
+        "864ec87"
+      ],
       "notes": "Documentation with Bart's additions: merge workflow, security note, troubleshooting"
     },
     {
@@ -177,7 +185,9 @@
       "priority": 6,
       "status": "completed",
       "security": false,
-      "commits": ["a3b7bb0"],
+      "commits": [
+        "a3b7bb0"
+      ],
       "notes": "Install script update - simple addition, do last"
     }
   ],

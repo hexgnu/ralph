@@ -14,7 +14,9 @@ echo "Installing Ralph agents to $AGENT_DIR..."
 cp "$SCRIPT_DIR/agents/"*.md "$AGENT_DIR/"
 
 echo "Installed agents:"
-ls -1 "$AGENT_DIR/"*.md | xargs -n1 basename
+for f in "$AGENT_DIR/"*.md; do
+    basename "$f"
+done
 
 # Install CLI tools to /usr/local/bin
 echo ""

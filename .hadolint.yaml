@@ -1,0 +1,34 @@
+# Hadolint configuration - AGGRESSIVE mode
+# https://github.com/hadolint/hadolint
+
+# Fail on any warning
+failure-threshold: warning
+
+# Treat info as warnings (stricter)
+no-fail: false
+
+# Specific rule configuration
+ignored:
+  # Only ignore with documented justification:
+  # - DL3008: Pin versions in apt-get - ignored in Dockerfile with inline comment
+  # - DL3016: Pin versions in npm install - ignored for claude-code (want latest)
+  []
+
+# Strict mode - fail on warnings
+strict-labels: true
+
+# Trusted registries - allow Docker Hub official images
+trustedRegistries:
+  - docker.io
+
+# Label schema enforcement
+label-schema:
+  maintainer: text
+  org.opencontainers.image.source: url
+  org.opencontainers.image.description: text
+
+# Override rules for stricter behavior
+override:
+  warning:
+    # Treat these as warnings (they default to info)
+    - DL3059  # Multiple consecutive RUN instructions
