@@ -83,3 +83,132 @@ print_info() {
     local message="${1:-}"
     printf "%s[INFO]%s %s\n" "$CYAN" "$NC" "$message"
 }
+
+# parse_tool_result - Extract exit code and output from tool result JSON
+# Usage: parse_tool_result "json_string" [max_lines]
+# Output: Prints extracted fields, sets global variables:
+#   TOOL_EXIT_CODE - exit code (0 if not present)
+#   TOOL_OUTPUT - truncated output string
+#   TOOL_IS_ERROR - 1 if error detected, 0 otherwise
+#   TOOL_TOTAL_LINES - total number of lines in original output
+parse_tool_result() {
+    local json="${1:-}"
+    local max_lines="${2:-5}"
+    local max_line_length=500
+
+    # Initialize globals
+    TOOL_EXIT_CODE=0
+    TOOL_OUTPUT=""
+    TOOL_IS_ERROR=0
+    TOOL_TOTAL_LINES=0
+
+    # Check dependencies
+    if ! check_dependencies; then
+        TOOL_IS_ERROR=1
+        TOOL_OUTPUT="jq not installed"
+        return 1
+    fi
+
+    # Handle empty input
+    if [[ -z "$json" ]]; then
+        TOOL_IS_ERROR=1
+        TOOL_OUTPUT="Empty JSON input"
+        return 1
+    fi
+
+    # Try to parse JSON - handle malformed gracefully
+    local exit_code output
+    exit_code=$(printf '%s' "$json" | jq -r '.exit_code // .exitCode // 0' 2>/dev/null) || {
+        TOOL_IS_ERROR=1
+        TOOL_OUTPUT="Malformed JSON"
+        return 1
+    }
+
+    output=$(printf '%s' "$json" | jq -r '.output // .stdout // .result // ""' 2>/dev/null) || {
+        TOOL_IS_ERROR=1
+        TOOL_OUTPUT="Malformed JSON"
+        return 1
+    }
+
+    TOOL_EXIT_CODE="${exit_code:-0}"
+
+    # Count total lines
+    if [[ -n "$output" ]]; then
+        TOOL_TOTAL_LINES=$(printf '%s\n' "$output" | wc -l | tr -d ' ')
+    else
+        TOOL_TOTAL_LINES=0
+    fi
+
+    # Truncate to max_lines
+    local truncated_output
+    if [[ "$TOOL_TOTAL_LINES" -gt "$max_lines" ]]; then
+        truncated_output=$(printf '%s' "$output" | head -n "$max_lines")
+    else
+        truncated_output="$output"
+    fi
+
+    # Truncate long lines
+    local final_output=""
+    local line
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "${#line}" -gt "$max_line_length" ]]; then
+            line="${line:0:$max_line_length}..."
+        fi
+        if [[ -n "$final_output" ]]; then
+            final_output="${final_output}
+${line}"
+        else
+            final_output="$line"
+        fi
+    done <<< "$truncated_output"
+
+    TOOL_OUTPUT="$final_output"
+
+    # Detect errors - case insensitive patterns
+    local lower_output
+    lower_output=$(printf '%s' "$output" | tr '[:upper:]' '[:lower:]')
+
+    # Check exit code first
+    if [[ "$TOOL_EXIT_CODE" -ne 0 ]]; then
+        TOOL_IS_ERROR=1
+    fi
+
+    # Check for error patterns (case-insensitive)
+    if printf '%s' "$lower_output" | grep -qE '(error|failed|exception|permission denied|no such file|command not found)'; then
+        TOOL_IS_ERROR=1
+    fi
+
+    return 0
+}
+
+# print_tool_result - Display tool result with success/failure indicator
+# Usage: print_tool_result "tool_name" "json_result" [max_lines]
+print_tool_result() {
+    local tool_name="${1:-}"
+    local json="${2:-}"
+    local max_lines="${3:-5}"
+
+    # Parse the result
+    parse_tool_result "$json" "$max_lines"
+    local parse_status=$?
+
+    # Display based on error status
+    if [[ "$TOOL_IS_ERROR" -eq 1 ]]; then
+        printf "%s[FAIL]%s %s (exit: %s)\n" "$RED" "$NC" "$tool_name" "$TOOL_EXIT_CODE"
+    else
+        printf "%s[OK]%s %s\n" "$GREEN" "$NC" "$tool_name"
+    fi
+
+    # Print output if present
+    if [[ -n "$TOOL_OUTPUT" ]]; then
+        printf "%s\n" "$TOOL_OUTPUT"
+    fi
+
+    # Show truncation message if applicable
+    if [[ "$TOOL_TOTAL_LINES" -gt "$max_lines" ]]; then
+        local remaining=$((TOOL_TOTAL_LINES - max_lines))
+        printf "%s[... %d more lines]%s\n" "$YELLOW" "$remaining" "$NC"
+    fi
+
+    return "$parse_status"
+}

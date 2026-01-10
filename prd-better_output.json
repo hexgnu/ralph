@@ -38,9 +38,9 @@
         ]
       },
       "priority": 1,
-      "status": "in_progress",
+      "status": "completed",
       "security": false,
-      "commits": [],
+      "commits": ["04bf125"],
       "notes": "Foundation for all other output improvements. Bart's fixes: TTY detection, jq check, portability"
     },
     {
@@ -73,7 +73,7 @@
         ]
       },
       "priority": 2,
-      "status": "pending",
+      "status": "completed",
       "security": false,
       "commits": [],
       "notes": "Bart's fixes: jq check, case-insensitive errors, more error patterns, line truncation"
