@@ -21,7 +21,7 @@ echo ""
 echo "Installing CLI tools to $BIN_DIR..."
 echo "(This may require sudo password)"
 
-for script in lisa.sh marge.sh ralph.sh bart.sh claude-stream.sh; do
+for script in lisa.sh marge.sh ralph.sh bart.sh claude-stream.sh worktree.sh; do
     if [ -f "$SCRIPT_DIR/$script" ]; then
         name="${script%.sh}"
         sudo cp "$SCRIPT_DIR/$script" "$BIN_DIR/$name"
@@ -40,3 +40,4 @@ echo "  bart --branch  - Chaos test a branch before merge"
 echo "  ralph          - Execute PRD stories"
 echo "  marge          - Post-flight quality gate (review before commit)"
 echo "  claude-stream  - Verbose claude -p with tool visibility"
+echo "  worktree       - Create git worktree for isolated development"

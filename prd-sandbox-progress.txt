@@ -140,3 +140,25 @@ Completed: 2026-01-09
   - New "Worktree Mode" section with when-to-use decision table
 - Marge diff review: COMMIT approved
 ---
+
+## US-006: Update install.sh to include worktree.sh
+Status: COMPLETED
+Started: 2026-01-09
+Completed: 2026-01-09
+
+### Verification Results:
+- [x] bash -n install.sh (PASS)
+- [x] grep 'worktree' install.sh (PASS - found in script list and commands output)
+
+### Acceptance Criteria Checklist:
+- [x] Add worktree.sh to the list of scripts installed to /usr/local/bin
+- [x] Install as 'worktree' (without .sh extension) for consistency
+- [x] Update the 'Available commands' output section
+- [x] Verify install.sh still installs other scripts correctly
+
+### Implementation Notes:
+- Added worktree.sh to the for loop: lisa.sh marge.sh ralph.sh bart.sh claude-stream.sh worktree.sh
+- Added "worktree - Create git worktree for isolated development" to Available commands output
+- Minimal change, follows existing patterns
+- Marge diff review: COMMIT approved
+---

@@ -175,9 +175,9 @@
         ]
       },
       "priority": 6,
-      "status": "pending",
+      "status": "completed",
       "security": false,
-      "commits": [],
+      "commits": ["a3b7bb0"],
       "notes": "Install script update - simple addition, do last"
     }
   ],
