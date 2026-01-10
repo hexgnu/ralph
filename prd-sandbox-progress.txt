@@ -83,6 +83,7 @@ Completed: 2026-01-09
 Status: COMPLETED
 Started: 2026-01-09
 Completed: 2026-01-09
+Commit: 71f4e2e
 
 ### Verification Results:
 - [x] bash -n worktree.sh (PASS)
@@ -106,4 +107,36 @@ Completed: 2026-01-09
 - --delete-branch/-d flag optionally deletes local branch
 - Explicitly notes that remote branches are NOT deleted
 - Shows available worktrees if specified one doesn't exist
+---
+
+## US-005: Update documentation for worktree support
+Status: COMPLETED
+Started: 2026-01-09
+Completed: 2026-01-09
+
+### Acceptance Criteria Checklist:
+- [x] Update README.md with Worktree section explaining usage
+- [x] Add comparison table: when to use container vs worktree
+- [x] Include SECURITY NOTE about worktree having full host filesystem access
+- [x] Include 'Merge Workflow' section showing how to get changes back to main
+- [x] Include troubleshooting section for common errors
+- [x] Update CLAUDE.md Commands section with worktree.sh
+- [x] Include examples: ./worktree.sh add-oauth, ./worktree.sh --list
+- [x] Document the worktree location (../ralph-worktrees/)
+- [x] Document cleanup workflow (./worktree.sh --remove)
+- [x] No broken markdown formatting
+
+### Implementation Notes:
+- README.md: Added "Worktree (Lightweight Alternative)" section with:
+  - Usage examples for all commands
+  - Container vs Worktree comparison table
+  - Security Note (WARNING blockquote)
+  - Merge Workflow with step-by-step instructions
+  - Troubleshooting section for common errors
+  - worktree.sh in Key Files table
+- CLAUDE.md: Updated with:
+  - worktree.sh commands in Commands section
+  - worktree.sh in Key Files table
+  - New "Worktree Mode" section with when-to-use decision table
+- Marge diff review: COMMIT approved
 ---

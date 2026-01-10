@@ -122,7 +122,7 @@
       "priority": 4,
       "status": "completed",
       "security": false,
-      "commits": [],
+      "commits": ["71f4e2e"],
       "notes": "Added --remove/-r command with comprehensive safety: confirmation prompt, dirty worktree detection (requires --force), optional --delete-branch for local branch cleanup, clear instructions for remote branch deletion."
     },
     {
@@ -150,9 +150,9 @@
         ]
       },
       "priority": 5,
-      "status": "pending",
+      "status": "completed",
       "security": false,
-      "commits": [],
+      "commits": ["864ec87"],
       "notes": "Documentation with Bart's additions: merge workflow, security note, troubleshooting"
     },
     {

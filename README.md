@@ -76,6 +76,71 @@ The sandbox:
 - Shows you changes before applying them to your real project
 - Works with Docker or Podman automatically
 
+## Worktree (Lightweight Alternative)
+
+Use git worktrees for faster, lightweight feature development:
+
+```bash
+./worktree.sh add-oauth              # Create worktree and start Claude Code
+./worktree.sh --create my-feature    # Create worktree only (no Claude Code)
+./worktree.sh --list                 # List all ralph worktrees
+./worktree.sh --remove my-feature    # Remove worktree (prompts for confirmation)
+```
+
+### Container vs Worktree
+
+| Feature | Container (`sandbox.sh`) | Worktree (`worktree.sh`) |
+|---------|-------------------------|--------------------------|
+| Isolation | Full (filesystem, network) | Git-only (separate working directory) |
+| Speed | Slower (container startup) | Fast (instant) |
+| Filesystem access | Container only | **Full host access** |
+| Use case | Untrusted code, experiments | Trusted development, parallel features |
+| Setup | Docker/Podman required | Git 2.5+ only |
+
+### Security Note
+
+> **WARNING**: Worktree mode runs with `--dangerously-skip-permissions` and has full host filesystem access. Use `sandbox.sh` for untrusted operations or when you want true isolation.
+
+### Merge Workflow
+
+After completing work in a worktree, merge your changes back to main:
+
+```bash
+# 1. From your worktree, commit and push your changes
+cd ../ralph-worktrees/add-oauth
+git add . && git commit -m "Add OAuth support"
+git push -u origin ralph/add-oauth
+
+# 2. Create a PR or merge locally
+gh pr create --base main --head ralph/add-oauth
+
+# 3. After merging, clean up the worktree
+cd /path/to/ralph
+./worktree.sh --remove add-oauth --delete-branch
+```
+
+### Troubleshooting
+
+**"Branch is already checked out" error**
+```bash
+# The branch is being used by another worktree
+git worktree list  # Find where it's checked out
+git worktree remove /path/to/other/worktree
+```
+
+**"Not a git worktree" error**
+```bash
+# The directory exists but isn't a valid worktree
+rm -rf ../ralph-worktrees/feature-name
+./worktree.sh feature-name  # Recreate it
+```
+
+**Worktree has uncommitted changes**
+```bash
+# Commit your changes first, or use --force to discard
+./worktree.sh --remove feature-name --force
+```
+
 ## Agents
 
 | Agent | Purpose |
@@ -106,6 +171,7 @@ She does NOT block for style preferences or theoretical concerns.
 | File | Purpose |
 |------|---------|
 | `sandbox.sh` | Run Claude Code in isolated container |
+| `worktree.sh` | Run Claude Code in git worktree (lightweight) |
 | `Dockerfile` | Ralph sandbox container |
 | `prompt.md` | Instructions for Ralph execution loop |
 | `prd.json` | User stories with `passes` status |
