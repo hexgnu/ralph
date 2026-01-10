@@ -1,0 +1,185 @@
+{
+  "project": "Ralph",
+  "branchName": "ralph/worktree-sandbox",
+  "description": "Add git worktree support for lightweight, parallel feature development without container overhead",
+  "prdFile": "prd-sandbox.json",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create worktree.sh with basic create and run functionality",
+      "description": "As a developer, I want to create a git worktree and run Claude Code in it so that I can work on features in isolation without container overhead.",
+      "acceptanceCriteria": [
+        "Create worktree.sh script in project root",
+        "Running `./worktree.sh <feature-name>` creates worktree at ../ralph-worktrees/<feature-name>",
+        "Script auto-detects default branch (main/master/trunk) using git symbolic-ref",
+        "Script creates branch `ralph/<feature-name>` from detected default branch",
+        "Script validates feature name: only alphanumeric, hyphens, underscores allowed",
+        "Script rejects invalid names with helpful error message",
+        "Script creates parent directory `../ralph-worktrees/` if it doesn't exist",
+        "Script changes to worktree directory and runs Claude Code with --dangerously-skip-permissions",
+        "Script prints security warning banner: 'WARNING: Worktree mode runs with full host filesystem access'",
+        "If worktree already exists, script uses existing worktree without error",
+        "Script detects if git worktree command is available, exits with helpful message if not",
+        "Script provides helpful error when branch is already checked out elsewhere",
+        "Script follows existing patterns from sandbox.sh (colors, header banners)",
+        "Script is executable (chmod +x)"
+      ],
+      "verification": {
+        "commands": [
+          "test -x worktree.sh",
+          "bash -n worktree.sh",
+          "./worktree.sh --help"
+        ],
+        "manualChecks": [
+          "Run ./worktree.sh test-feature and verify worktree is created",
+          "Verify invalid name './worktree.sh my feature' shows error",
+          "Verify security warning is displayed"
+        ]
+      },
+      "priority": 1,
+      "status": "completed",
+      "security": false,
+      "commits": ["3f65fae"],
+      "notes": "Core functionality with Bart's critical fixes: default branch detection, name validation, security warning"
+    },
+    {
+      "id": "US-002",
+      "title": "Add worktree --list command",
+      "description": "As a developer, I want to list all ralph worktrees so that I can see what feature branches I have active.",
+      "acceptanceCriteria": [
+        "Add `--list` flag that shows all worktrees in ../ralph-worktrees/",
+        "List shows: name, branch, path, and status (clean/dirty)",
+        "Status shows if worktree has uncommitted changes",
+        "If no worktrees exist, show helpful message instead of empty output",
+        "Output is formatted for readability with alignment",
+        "Bash syntax check passes: bash -n worktree.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n worktree.sh",
+          "./worktree.sh --list"
+        ],
+        "manualChecks": [
+          "Create a worktree, verify it appears in --list",
+          "Verify --list with zero worktrees shows helpful message"
+        ]
+      },
+      "priority": 2,
+      "status": "completed",
+      "security": false,
+      "commits": [],
+      "notes": "Split from original US-002 per Bart's recommendation"
+    },
+    {
+      "id": "US-003",
+      "title": "Add worktree --create command",
+      "description": "As a developer, I want to create a worktree without immediately starting Claude Code so I can set it up first.",
+      "acceptanceCriteria": [
+        "Add `--create <name>` flag that creates worktree without running Claude Code",
+        "Uses same validation and branch creation as default command",
+        "Shows path to created worktree for easy navigation",
+        "Suggests next steps: 'cd ../ralph-worktrees/<name> to start working'",
+        "Bash syntax check passes: bash -n worktree.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n worktree.sh",
+          "./worktree.sh --help"
+        ],
+        "manualChecks": [
+          "Run ./worktree.sh --create test-create and verify worktree exists but Claude not started"
+        ]
+      },
+      "priority": 3,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Split from original US-002 per Bart's recommendation"
+    },
+    {
+      "id": "US-004",
+      "title": "Add worktree --remove command with safety checks",
+      "description": "As a developer, I want to safely remove worktrees so that I can clean up finished feature work.",
+      "acceptanceCriteria": [
+        "Add `--remove <name>` flag that removes a worktree",
+        "Prompts for confirmation before deleting",
+        "Warns and requires --force if worktree has uncommitted changes",
+        "Offers option to also delete the branch (default: no)",
+        "Error handling for removing non-existent worktree",
+        "Does NOT delete remote branches (local only)",
+        "Bash syntax check passes: bash -n worktree.sh"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n worktree.sh",
+          "./worktree.sh --help"
+        ],
+        "manualChecks": [
+          "Create worktree, add uncommitted changes, verify --remove warns about dirty state",
+          "Verify --remove prompts for confirmation"
+        ]
+      },
+      "priority": 4,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Split from original US-002 per Bart's recommendation. Safety is critical."
+    },
+    {
+      "id": "US-005",
+      "title": "Update documentation for worktree support",
+      "description": "As a user, I want documentation explaining the worktree option so that I know when to use it vs container sandbox.",
+      "acceptanceCriteria": [
+        "Update README.md with Worktree section explaining usage",
+        "Add comparison table: when to use container vs worktree",
+        "Include SECURITY NOTE about worktree having full host filesystem access",
+        "Include 'Merge Workflow' section showing how to get changes back to main",
+        "Include troubleshooting section for common errors",
+        "Update CLAUDE.md Commands section with worktree.sh",
+        "Include examples: ./worktree.sh add-oauth, ./worktree.sh --list",
+        "Document the worktree location (../ralph-worktrees/)",
+        "Document cleanup workflow (./worktree.sh --remove)",
+        "No broken markdown formatting"
+      ],
+      "verification": {
+        "commands": [],
+        "manualChecks": [
+          "Review README.md for new worktree section",
+          "Review CLAUDE.md for updated commands",
+          "Verify merge workflow instructions are clear"
+        ]
+      },
+      "priority": 5,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Documentation with Bart's additions: merge workflow, security note, troubleshooting"
+    },
+    {
+      "id": "US-006",
+      "title": "Update install.sh to include worktree.sh",
+      "description": "As a user, I want worktree.sh installed globally so that I can run it from any project directory.",
+      "acceptanceCriteria": [
+        "Add worktree.sh to the list of scripts installed to /usr/local/bin",
+        "Install as 'worktree' (without .sh extension) for consistency",
+        "Update the 'Available commands' output section",
+        "Verify install.sh still installs other scripts correctly"
+      ],
+      "verification": {
+        "commands": [
+          "bash -n install.sh",
+          "grep 'worktree' install.sh"
+        ],
+        "manualChecks": [
+          "Run install.sh and verify worktree command is available"
+        ]
+      },
+      "priority": 6,
+      "status": "pending",
+      "security": false,
+      "commits": [],
+      "notes": "Install script update - simple addition, do last"
+    }
+  ],
+  "blockers": []
+}

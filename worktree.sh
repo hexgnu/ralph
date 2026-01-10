@@ -41,6 +41,7 @@ print_help() {
     print_header
     echo ""
     echo "Usage: ./worktree.sh <feature-name>"
+    echo "       ./worktree.sh --list"
     echo "       ./worktree.sh --help"
     echo ""
     echo "Creates a git worktree for isolated feature development and runs"
@@ -51,11 +52,13 @@ print_help() {
     echo "  <feature-name>   Name for the feature (alphanumeric, hyphens, underscores)"
     echo ""
     echo "Options:"
+    echo "  --list           List all ralph worktrees with status"
     echo "  --help           Show this help message"
     echo ""
     echo "Examples:"
     echo "  ./worktree.sh add-oauth        # Create worktree and start Claude Code"
     echo "  ./worktree.sh my_feature       # Underscores are allowed"
+    echo "  ./worktree.sh --list           # Show all worktrees"
     echo ""
     echo "Worktrees are created at: $WORKTREE_BASE/<feature-name>"
     echo "Branches are named: ralph/<feature-name>"
@@ -156,6 +159,88 @@ check_prerequisites() {
     fi
 }
 
+# List all ralph worktrees with status
+list_worktrees() {
+    print_header
+    echo ""
+
+    # Get absolute path to worktree base
+    local worktree_base_abs
+    worktree_base_abs=$(cd "$SCRIPT_DIR" && cd "$WORKTREE_BASE" 2>/dev/null && pwd) || worktree_base_abs=""
+
+    # Check if worktree directory exists and has subdirectories
+    if [ -z "$worktree_base_abs" ] || [ ! -d "$worktree_base_abs" ]; then
+        echo -e "${YELLOW}No ralph worktrees found.${NC}"
+        echo ""
+        echo "Create your first worktree with:"
+        echo "  ./worktree.sh <feature-name>"
+        echo ""
+        echo "Worktrees will be created at: $WORKTREE_BASE/"
+        return 0
+    fi
+
+    # Count worktrees
+    local worktree_count=0
+    for dir in "$worktree_base_abs"/*/; do
+        [ -d "$dir" ] && ((worktree_count++)) || true
+    done
+
+    if [ "$worktree_count" -eq 0 ]; then
+        echo -e "${YELLOW}No ralph worktrees found.${NC}"
+        echo ""
+        echo "Create your first worktree with:"
+        echo "  ./worktree.sh <feature-name>"
+        echo ""
+        echo "Worktrees will be created at: $WORKTREE_BASE/"
+        return 0
+    fi
+
+    echo -e "${CYAN}Ralph Worktrees:${NC}"
+    echo ""
+
+    # Print header row
+    printf "  %-20s %-25s %-8s %s\n" "NAME" "BRANCH" "STATUS" "PATH"
+    printf "  %-20s %-25s %-8s %s\n" "----" "------" "------" "----"
+
+    # Iterate through worktree directories
+    for dir in "$worktree_base_abs"/*/; do
+        [ -d "$dir" ] || continue
+
+        local name
+        name=$(basename "$dir")
+        local path="${dir%/}"
+
+        # Get branch name
+        local branch=""
+        if [ -f "$path/.git" ]; then
+            branch=$(cd "$path" && git rev-parse --abbrev-ref HEAD 2>/dev/null) || branch="(detached)"
+        else
+            branch="(not a git worktree)"
+        fi
+
+        # Check status (clean/dirty)
+        local status=""
+        if [ -f "$path/.git" ]; then
+            if (cd "$path" && git diff --quiet 2>/dev/null && git diff --cached --quiet 2>/dev/null); then
+                status="${GREEN}clean${NC}"
+            else
+                status="${YELLOW}dirty${NC}"
+            fi
+        else
+            status="${RED}error${NC}"
+        fi
+
+        # Print formatted row
+        printf "  %-20s %-25s " "$name" "$branch"
+        echo -en "$status"
+        # Pad status to 8 chars (accounting for color codes)
+        printf "%*s" $((8 - 5)) ""
+        echo " $path"
+    done
+
+    echo ""
+}
+
 # Create and enter worktree
 create_worktree() {
     local feature_name="$1"
@@ -211,6 +296,12 @@ main() {
     # Handle --help
     if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
         print_help
+        exit 0
+    fi
+
+    # Handle --list
+    if [ "$1" = "--list" ] || [ "$1" = "-l" ]; then
+        list_worktrees
         exit 0
     fi
 
