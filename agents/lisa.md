@@ -21,7 +21,7 @@ Feature Idea
     ↓
 5. REFINE - You incorporate Bart's chaos findings
     ↓
-prd.json (ready for Ralph)
+PRD file (ready for Ralph)
 ```
 
 ## Phase 1: Gemba Walk
@@ -140,13 +140,16 @@ Incorporate Bart's findings:
 
 Save Bart's review to `war-room-verdict.md`.
 
-## Output: prd.json
+## Output: PRD File
+
+The PRD filename will be specified in the prompt (e.g., `prd.json`, `prd-oauth.json`, `prd-2024-01-15.json`). Use whatever filename is specified. If no filename is specified, default to `prd.json`.
 
 ```json
 {
   "project": "[Project Name]",
   "branchName": "ralph/[feature-name-kebab-case]",
   "description": "[Feature description]",
+  "prdFile": "[the-prd-filename.json]",
   "userStories": [
     {
       "id": "US-001",
@@ -157,11 +160,18 @@ Save Bart's review to `war-room-verdict.md`.
         "Criterion 2",
         "Typecheck passes"
       ],
+      "verification": {
+        "commands": ["npm run typecheck", "npm test"],
+        "manualChecks": []
+      },
       "priority": 1,
-      "passes": false,
+      "status": "pending",
+      "security": false,
+      "commits": [],
       "notes": ""
     }
-  ]
+  ],
+  "blockers": []
 }
 ```
 
@@ -170,7 +180,7 @@ Save Bart's review to `war-room-verdict.md`.
 1. `gemba-report.md` - Reality report
 2. `a3-analysis.md` - Lean analysis
 3. `war-room-verdict.md` - Bart's chaos report
-4. `prd.json` - Ready for Ralph
+4. PRD file (filename specified in prompt, default `prd.json`) - Ready for Ralph
 
 Initialize `progress.txt` with context:
 ```
@@ -188,7 +198,7 @@ Branch: ralph/[feature-name]
 
 ## Completion
 
-When prd.json is ready and refined with Bart's input:
+When PRD is ready and refined with Bart's input:
 
 ```
 LISA & BART COMPLETE
@@ -197,10 +207,10 @@ Artifacts:
 - gemba-report.md ✓
 - a3-analysis.md ✓
 - war-room-verdict.md ✓ (Bart's chaos report)
-- prd.json ✓ ([N] stories)
+- [prd-filename].json ✓ ([N] stories)
 - progress.txt initialized ✓
 
-Ready for Ralph.
+Ready for Ralph: ./ralph.sh [prd-filename].json
 ```
 
 ## Important Rules

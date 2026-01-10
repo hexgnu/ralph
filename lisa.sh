@@ -29,16 +29,22 @@ NC='\033[0m'
 usage() {
     echo "Lisa - Planning Agent"
     echo ""
-    echo "Usage: ./lisa.sh \"Plan: your feature description\""
+    echo "Usage: ./lisa.sh [--name <name>] \"Plan: your feature description\""
     echo ""
     echo "Lisa will:"
     echo "  1. Gemba Walk - observe the codebase"
     echo "  2. A3 Analysis - define the problem"
     echo "  3. War Room - adversarial review"
-    echo "  4. Output prd.json for Ralph"
+    echo "  4. Output PRD for Ralph"
     echo ""
     echo "Options:"
-    echo "  --help    Show this help"
+    echo "  --name <name>  Output to prd-<name>.json (default: prd.json)"
+    echo "  --help         Show this help"
+    echo ""
+    echo "Examples:"
+    echo "  ./lisa.sh \"Plan: add user authentication\""
+    echo "  ./lisa.sh --name oauth \"Plan: add OAuth support\""
+    echo "  ./lisa.sh --name 2024-01-15 \"Plan: refactor API\""
 }
 
 # Stream claude output with tool visibility (Claude Code style)
@@ -99,23 +105,54 @@ stream_claude() {
     done
 }
 
-if [ -z "$1" ] || [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
+# Parse arguments
+PRD_NAME=""
+PROMPT=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        --name)
+            if [ -z "$2" ]; then
+                echo "Error: --name requires a value"
+                exit 1
+            fi
+            PRD_NAME="$2"
+            shift 2
+            ;;
+        *)
+            PROMPT="$*"
+            break
+            ;;
+    esac
+done
+
+if [ -z "$PROMPT" ]; then
     usage
     exit 1
 fi
 
-PROMPT="$*"
+# Set PRD filename
+if [ -n "$PRD_NAME" ]; then
+    PRD_FILE="prd-${PRD_NAME}.json"
+else
+    PRD_FILE="prd.json"
+fi
 
 echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}  Lisa Planning Agent${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "${YELLOW}Planning:${NC} $PROMPT"
+echo -e "${YELLOW}PRD File:${NC} $PRD_FILE"
 echo ""
 
 # Run with streaming output
 # Be explicit about following the full workflow to produce artifacts
-stream_claude "As the lisa agent, follow your complete workflow (Gemba Walk → A3 Analysis → Bart chaos review → prd.json).
+stream_claude "As the lisa agent, follow your complete workflow (Gemba Walk → A3 Analysis → Bart chaos review → PRD).
 
 Your task: $PROMPT
 
@@ -123,7 +160,7 @@ You MUST produce these artifacts:
 - gemba-report.md
 - a3-analysis.md
 - war-room-verdict.md (from Bart)
-- prd.json
+- $PRD_FILE (the PRD file - use this exact filename)
 
 Do not just answer the question. Execute your full planning workflow and create the files."
 
@@ -135,7 +172,7 @@ echo ""
 
 # Show what was created
 echo "Artifacts:"
-for file in prd.json gemba-report.md a3-analysis.md war-room-verdict.md progress.txt; do
+for file in "$PRD_FILE" gemba-report.md a3-analysis.md war-room-verdict.md progress.txt; do
     if [ -f "$SCRIPT_DIR/$file" ]; then
         echo -e "  ${GREEN}✓${NC} $file"
     else
@@ -146,12 +183,12 @@ done
 echo ""
 
 # Show PRD summary if it exists
-if [ -f "$SCRIPT_DIR/prd.json" ]; then
+if [ -f "$SCRIPT_DIR/$PRD_FILE" ]; then
     echo "PRD Summary:"
-    jq -r '.userStories[] | "  [\(.id)] \(.title)"' "$SCRIPT_DIR/prd.json" 2>/dev/null || echo "  (could not parse prd.json)"
+    jq -r '.userStories[] | "  [\(.id)] \(.title)"' "$SCRIPT_DIR/$PRD_FILE" 2>/dev/null || echo "  (could not parse $PRD_FILE)"
     echo ""
     echo "Next steps:"
-    echo "  1. Review the PRD:     cat prd.json | jq ."
-    echo "  2. Chaos test:         ./bart.sh --prd"
-    echo "  3. Execute:            ./ralph.sh"
+    echo "  1. Review the PRD:     cat $PRD_FILE | jq ."
+    echo "  2. Chaos test:         ./bart.sh --prd $PRD_FILE"
+    echo "  3. Execute:            ./ralph.sh $PRD_FILE"
 fi

@@ -31,9 +31,13 @@ usage() {
     echo "Bart - Chaos Agent"
     echo ""
     echo "Usage:"
-    echo "  ./bart.sh --prd       Chaos test PRD before execution"
-    echo "  ./bart.sh --branch    Chaos test current branch before merge"
-    echo "  ./bart.sh \"prompt\"    Chaos test anything"
+    echo "  ./bart.sh --prd [file]  Chaos test PRD before execution (default: prd.json)"
+    echo "  ./bart.sh --branch      Chaos test current branch before merge"
+    echo "  ./bart.sh \"prompt\"      Chaos test anything"
+    echo ""
+    echo "Examples:"
+    echo "  ./bart.sh --prd                    # uses prd.json"
+    echo "  ./bart.sh --prd prd-oauth.json     # uses prd-oauth.json"
     echo ""
     echo "Bart tries to break things. He finds edge cases, challenges"
     echo "assumptions, and asks 'what could go wrong?'"
@@ -105,10 +109,13 @@ chaos_prd() {
     echo ""
 
     if [ ! -f "$PRD_FILE" ]; then
-        echo -e "${RED}Error: No prd.json found at $PRD_FILE${NC}"
-        echo "Run Lisa first to generate a PRD."
+        echo -e "${RED}Error: PRD file not found: $PRD_FILE${NC}"
+        echo "Run Lisa first to generate a PRD, or specify the correct file:"
+        echo "  ./bart.sh --prd prd-oauth.json"
         exit 1
     fi
+
+    echo -e "PRD File: ${CYAN}$PRD_FILE${NC}"
 
     echo "PRD Stories:"
     jq -r '.userStories[] | "  [\(.id)] \(.title)"' "$PRD_FILE" 2>/dev/null || cat "$PRD_FILE"
@@ -196,6 +203,10 @@ Output:
 # Parse arguments
 case "${1:-}" in
     --prd)
+        # Check for optional PRD filename argument
+        if [ -n "${2:-}" ] && [[ "$2" == *.json ]]; then
+            PRD_FILE="$SCRIPT_DIR/$2"
+        fi
         chaos_prd
         ;;
     --branch)

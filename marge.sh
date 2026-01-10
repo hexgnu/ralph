@@ -30,6 +30,7 @@ usage() {
     echo ""
     echo "Usage:"
     echo "  ./marge.sh              Review staged changes before commit"
+    echo "  ./marge.sh --squash     Squash Ralph's commits into one (run after Ralph completes)"
     echo "  ./marge.sh \"context\"    Review with additional context"
     echo ""
     echo "Marge reviews code for:"
@@ -98,9 +99,177 @@ stream_claude() {
     done
 }
 
+# Squash Ralph's commits into one
+squash_commits() {
+    echo -e "${YELLOW}═══════════════════════════════════════════════════════${NC}"
+    echo -e "${YELLOW}  Marge: Squash Ralph's Commits${NC}"
+    echo -e "${YELLOW}  \"Let's tidy this up before it goes to main.\"${NC}"
+    echo -e "${YELLOW}═══════════════════════════════════════════════════════${NC}"
+    echo ""
+
+    # Get current branch
+    CURRENT_BRANCH=$(git branch --show-current)
+
+    # Find the base branch (usually main)
+    BASE_BRANCH="main"
+    if ! git rev-parse --verify "$BASE_BRANCH" >/dev/null 2>&1; then
+        BASE_BRANCH="master"
+    fi
+
+    # Find merge base
+    MERGE_BASE=$(git merge-base "$BASE_BRANCH" HEAD)
+
+    # Find Ralph's commits (those with US-XXX pattern)
+    RALPH_COMMITS=$(git log --oneline "$MERGE_BASE"..HEAD --grep="US-[0-9]" --format="%H")
+    RALPH_COMMIT_COUNT=$(echo "$RALPH_COMMITS" | grep -c . || echo 0)
+
+    if [ "$RALPH_COMMIT_COUNT" -eq 0 ]; then
+        echo -e "${RED}No Ralph commits found (looking for US-XXX pattern).${NC}"
+        echo "Ralph commits should have 'US-001', 'US-002', etc. in the message."
+        echo ""
+        echo "All commits on branch:"
+        git log --oneline "$MERGE_BASE"..HEAD
+        exit 1
+    fi
+
+    if [ "$RALPH_COMMIT_COUNT" -eq 1 ]; then
+        echo -e "${GREEN}Only 1 Ralph commit on branch - nothing to squash.${NC}"
+        exit 0
+    fi
+
+    # Get the oldest Ralph commit's parent (where we'll reset to)
+    OLDEST_RALPH_COMMIT=$(echo "$RALPH_COMMITS" | tail -1)
+    SQUASH_BASE=$(git rev-parse "$OLDEST_RALPH_COMMIT^")
+
+    echo -e "Branch: ${CYAN}$CURRENT_BRANCH${NC}"
+    echo -e "Base: ${CYAN}$BASE_BRANCH${NC}"
+    echo -e "Ralph commits to squash: ${CYAN}$RALPH_COMMIT_COUNT${NC}"
+    echo ""
+
+    echo "Ralph's commits (US-XXX):"
+    git log --oneline "$MERGE_BASE"..HEAD --grep="US-[0-9]"
+    echo ""
+
+    echo "Changes:"
+    git diff --stat "$SQUASH_BASE"..HEAD
+    echo ""
+
+    # Get Ralph's commit messages for context
+    COMMIT_MESSAGES=$(git log --format="- %s" "$MERGE_BASE"..HEAD --grep="US-[0-9]")
+
+    # Get the diff for review (from squash base, not merge base)
+    DIFF_STAT=$(git diff --stat "$SQUASH_BASE"..HEAD)
+    FULL_DIFF=$(git diff "$SQUASH_BASE"..HEAD)
+
+    echo -e "${CYAN}Marge is reviewing Ralph's work before squashing...${NC}"
+    echo ""
+
+    # First, have Marge review the full diff
+    REVIEW_PROMPT="SQUASH REVIEW MODE
+
+As Marge, review ALL of Ralph's work on this feature branch before we squash it into one commit.
+
+Branch: $CURRENT_BRANCH
+Ralph's commits ($RALPH_COMMIT_COUNT total, identified by US-XXX pattern):
+$COMMIT_MESSAGES
+
+Files changed:
+$DIFF_STAT
+
+Full diff:
+$FULL_DIFF
+
+Review this work for:
+- Security issues
+- Architecture concerns
+- Outage risks
+- Anything that should NOT go to main
+
+Then provide your verdict:
+
+If APPROVE:
+MARGE SQUASH VERDICT: APPROVE
+
+[Brief summary of what looks good]
+
+SQUASH_MESSAGE:
+<type>(<scope>): <subject>
+
+<body describing the overall change>
+
+If REJECT:
+MARGE SQUASH VERDICT: REJECT
+
+Blocking Issues:
+- [Issue 1]
+- [Issue 2]
+
+These must be fixed before squashing."
+
+    # Run the review
+    REVIEW_RESULT=$(claude --agent marge --dangerously-skip-permissions -p "$REVIEW_PROMPT" 2>/dev/null)
+
+    # Check if rejected
+    if echo "$REVIEW_RESULT" | grep -qi "VERDICT: REJECT"; then
+        echo -e "${RED}═══════════════════════════════════════════════════════${NC}"
+        echo -e "${RED}  MARGE SQUASH VERDICT: REJECT${NC}"
+        echo -e "${RED}═══════════════════════════════════════════════════════${NC}"
+        echo ""
+        echo "$REVIEW_RESULT" | grep -A 100 "Blocking Issues:" || echo "$REVIEW_RESULT"
+        echo ""
+        echo "Fix the issues above, commit the fixes, then run squash again."
+        exit 1
+    fi
+
+    # Extract the commit message
+    SQUASH_MSG=$(echo "$REVIEW_RESULT" | awk '/SQUASH_MESSAGE:/{found=1; next} found{print}' | sed 's/^[[:space:]]*//')
+
+    echo -e "${CYAN}Proposed squash commit message:${NC}"
+    echo "────────────────────────────────────────────────────────"
+    echo "$SQUASH_MSG"
+    echo "────────────────────────────────────────────────────────"
+    echo ""
+
+    # Ask for confirmation
+    echo -e "${YELLOW}This will squash $RALPH_COMMIT_COUNT Ralph commits into one.${NC}"
+    read -p "Proceed with squash? [y/N] " -n 1 -r
+    echo ""
+
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Squash cancelled."
+        exit 0
+    fi
+
+    # Perform the squash using soft reset to before Ralph's first commit
+    echo -e "${CYAN}Squashing commits...${NC}"
+    git reset --soft "$SQUASH_BASE"
+
+    # Commit with the generated message
+    git commit -m "$SQUASH_MSG
+
+Co-Authored-By: Ralph (Claude Agent) <noreply@anthropic.com>
+Reviewed-By: Marge (Claude Agent) <noreply@anthropic.com>"
+
+    echo ""
+    echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}  Squash Complete${NC}"
+    echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo "New commit:"
+    git log -1 --oneline
+    echo ""
+    echo "Ready to push or create PR."
+}
+
 # Handle help
 if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
     usage
+    exit 0
+fi
+
+# Handle squash
+if [ "$1" == "--squash" ]; then
+    squash_commits
     exit 0
 fi
 
