@@ -98,7 +98,7 @@ echo -e "${GREEN}═════════════════════
 
 # Show what changed
 cd "${TEMP_WORKSPACE}"
-if [[ -n "$(git status --porcelain 2> /dev/null)" ]]; then
+if [[ -n "$(git status --porcelain 2> /dev/null || :)" ]]; then
   echo -e "${YELLOW}Changes made in sandbox:${NC}"
   git status --short
   echo ""

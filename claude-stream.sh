@@ -22,24 +22,24 @@ process_stream() {
     fi
 
     local msg_type tool text desc
-    msg_type=$(printf '%s' "${line}" | jq -r '.type // empty')
+    msg_type=$(printf '%s' "${line}" | jq -r '.type // empty' || :)
 
     case "${msg_type}" in
       assistant)
         # Check for tool use
-        tool=$(printf '%s' "${line}" | jq -r '.message.content[0].name // empty')
+        tool=$(printf '%s' "${line}" | jq -r '.message.content[0].name // empty' || :)
         if [[ -n "${tool}" ]]; then
           if [[ "${tool}" == "TodoWrite" ]]; then
             echo -e "${CYAN}→ ${tool}${NC}:"
-            printf '%s' "${line}" | jq -r '.message.content[0].input.todos[] | "  [\(.status)] \(.content)"' 2> /dev/null
+            printf '%s' "${line}" | jq -r '.message.content[0].input.todos[] | "  [\(.status)] \(.content)"' 2> /dev/null || :
           else
-            desc=$(printf '%s' "${line}" | jq -r '.message.content[0].input.description // .message.content[0].input.file_path // .message.content[0].input.command // .message.content[0].input.pattern // ""' 2> /dev/null | head -c 60)
+            desc=$(printf '%s' "${line}" | jq -r '.message.content[0].input.description // .message.content[0].input.file_path // .message.content[0].input.command // .message.content[0].input.pattern // ""' 2> /dev/null | head -c 60 || :)
             echo -e "${CYAN}→ ${tool}${NC}: ${desc}"
           fi
         fi
 
         # Check for text response
-        text=$(printf '%s' "${line}" | jq -r '.message.content[0].text // empty')
+        text=$(printf '%s' "${line}" | jq -r '.message.content[0].text // empty' || :)
         if [[ -n "${text}" ]]; then
           echo ""
           echo -e "${GREEN}${text}${NC}"
@@ -56,4 +56,4 @@ process_stream() {
   done
 }
 
-claude --verbose --output-format stream-json -p "$@" 2>&1 | process_stream
+claude --verbose --output-format stream-json -p "$@" 2>&1 | process_stream || :

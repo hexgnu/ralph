@@ -8,6 +8,7 @@
 #   ./worktree.sh my-feature
 
 set -e
+shopt -s inherit_errexit
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKTREE_BASE="../ralph-worktrees"
@@ -69,7 +70,7 @@ print_help() {
     echo "  ./worktree.sh --remove oauth --delete-branch  # Remove worktree and branch"
     echo "  ./worktree.sh --list                 # Show all worktrees"
     echo ""
-    echo "Worktrees are created at: $WORKTREE_BASE/<feature-name>"
+    echo "Worktrees are created at: ${WORKTREE_BASE}/<feature-name>"
     echo "Branches are named: ralph/<feature-name>"
     echo ""
 }
@@ -109,7 +110,7 @@ detect_default_branch() {
     local default_branch
 
     # Try to get from remote HEAD reference
-    if default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'); then
+    if default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || :); then
         if [[ -n "${default_branch}" ]]; then
             printf '%s' "${default_branch}"
             return 0
@@ -305,7 +306,9 @@ list_worktrees() {
     local worktree_count=0
     local dir
     for dir in "${worktree_base_abs}"/*/; do
-        [[ -d "${dir}" ]] && ((worktree_count++)) || true
+        if [[ -d "${dir}" ]]; then
+            ((worktree_count++))
+        fi
     done
 
     if [[ "${worktree_count}" -eq 0 ]]; then

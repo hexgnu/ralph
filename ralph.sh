@@ -52,35 +52,35 @@ stream_claude() {
     fi
 
     local msg_type
-    msg_type=$(printf '%s' "${line}" | jq -r '.type // empty')
+    msg_type=$(printf '%s' "${line}" | jq -r '.type // empty' || :)
 
     case "${msg_type}" in
       assistant)
         local tool
-        tool=$(printf '%s' "${line}" | jq -r '.message.content[0].name // empty')
+        tool=$(printf '%s' "${line}" | jq -r '.message.content[0].name // empty' || :)
         if [[ -n "${tool}" ]]; then
           local input desc
-          input=$(printf '%s' "${line}" | jq -r '.message.content[0].input // empty')
+          input=$(printf '%s' "${line}" | jq -r '.message.content[0].input // empty' || :)
 
           case "${tool}" in
             Bash)
-              desc=$(printf '%s' "${input}" | jq -r '.description // empty')
-              [[ -z "${desc}" ]] && desc=$(printf '%s' "${input}" | jq -r '.command // empty' | head -c 60)
+              desc=$(printf '%s' "${input}" | jq -r '.description // empty' || :)
+              [[ -z "${desc}" ]] && desc=$(printf '%s' "${input}" | jq -r '.command // empty' | head -c 60 || :)
               ;;
             Read | Write | Edit)
-              desc=$(printf '%s' "${input}" | jq -r '.file_path // empty' | sed 's|.*/||')
+              desc=$(printf '%s' "${input}" | jq -r '.file_path // empty' | sed 's|.*/||' || :)
               ;;
             Glob | Grep)
-              desc=$(printf '%s' "${input}" | jq -r '.pattern // empty')
+              desc=$(printf '%s' "${input}" | jq -r '.pattern // empty' || :)
               ;;
             Task)
-              desc=$(printf '%s' "${input}" | jq -r '.prompt // empty' | head -c 50)
+              desc=$(printf '%s' "${input}" | jq -r '.prompt // empty' | head -c 50 || :)
               ;;
             TodoWrite)
               desc=""
               ;;
             *)
-              desc=$(printf '%s' "${input}" | jq -r '.description // .file_path // .pattern // .command // empty' | head -c 60)
+              desc=$(printf '%s' "${input}" | jq -r '.description // .file_path // .pattern // .command // empty' | head -c 60 || :)
               ;;
           esac
 
@@ -92,7 +92,7 @@ stream_claude() {
         fi
 
         local text
-        text=$(printf '%s' "${line}" | jq -r '.message.content[0].text // empty')
+        text=$(printf '%s' "${line}" | jq -r '.message.content[0].text // empty' || :)
         if [[ -n "${text}" ]]; then
           echo ""
           echo "${text}"
@@ -102,7 +102,7 @@ stream_claude() {
         ;;
       *) ;; # Ignore other message types
     esac
-  done
+  done || :
 }
 
 # Archive previous run if branch changed
@@ -122,7 +122,7 @@ if [[ -f "${PRD_FILE}" ]] && [[ -f "${LAST_BRANCH_FILE}" ]]; then
     echo "   Archived to: ${ARCHIVE_FOLDER}"
 
     echo "# Ralph Progress Log" > "${PROGRESS_FILE}"
-    echo "Started: $(date)" >> "${PROGRESS_FILE}"
+    echo "Started: $(date || :)" >> "${PROGRESS_FILE}"
     echo "---" >> "${PROGRESS_FILE}"
   fi
 fi
@@ -138,7 +138,7 @@ fi
 # Initialize progress file if it doesn't exist
 if [[ ! -f "${PROGRESS_FILE}" ]]; then
   echo "# Ralph Progress Log" > "${PROGRESS_FILE}"
-  echo "Started: $(date)" >> "${PROGRESS_FILE}"
+  echo "Started: $(date || :)" >> "${PROGRESS_FILE}"
   echo "---" >> "${PROGRESS_FILE}"
 fi
 

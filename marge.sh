@@ -10,6 +10,7 @@
 #   1 = REJECT (fix issues first)
 
 set -e
+shopt -s inherit_errexit
 
 # Load nvm (required for claude command)
 export NVM_DIR="${NVM_DIR:-${HOME}/.nvm}"
@@ -52,35 +53,35 @@ stream_claude() {
     fi
 
     local msg_type
-    msg_type=$(printf '%s' "${line}" | jq -r '.type // empty')
+    msg_type=$(printf '%s' "${line}" | jq -r '.type // empty' || :)
 
     case "${msg_type}" in
       assistant)
         local tool
-        tool=$(printf '%s' "${line}" | jq -r '.message.content[0].name // empty')
+        tool=$(printf '%s' "${line}" | jq -r '.message.content[0].name // empty' || :)
         if [[ -n "${tool}" ]]; then
           local input desc
-          input=$(printf '%s' "${line}" | jq -r '.message.content[0].input // empty')
+          input=$(printf '%s' "${line}" | jq -r '.message.content[0].input // empty' || :)
 
           case "${tool}" in
             Bash)
-              desc=$(printf '%s' "${input}" | jq -r '.description // empty')
-              [[ -z "${desc}" ]] && desc=$(printf '%s' "${input}" | jq -r '.command // empty' | head -c 60)
+              desc=$(printf '%s' "${input}" | jq -r '.description // empty' || :)
+              [[ -z "${desc}" ]] && desc=$(printf '%s' "${input}" | jq -r '.command // empty' | head -c 60 || :)
               ;;
             Read | Write | Edit)
-              desc=$(printf '%s' "${input}" | jq -r '.file_path // empty' | sed 's|.*/||')
+              desc=$(printf '%s' "${input}" | jq -r '.file_path // empty' | sed 's|.*/||' || :)
               ;;
             Glob | Grep)
-              desc=$(printf '%s' "${input}" | jq -r '.pattern // empty')
+              desc=$(printf '%s' "${input}" | jq -r '.pattern // empty' || :)
               ;;
             Task)
-              desc=$(printf '%s' "${input}" | jq -r '.prompt // empty' | head -c 50)
+              desc=$(printf '%s' "${input}" | jq -r '.prompt // empty' | head -c 50 || :)
               ;;
             TodoWrite)
               desc=""
               ;;
             *)
-              desc=$(printf '%s' "${input}" | jq -r '.description // .file_path // .pattern // .command // empty' | head -c 60)
+              desc=$(printf '%s' "${input}" | jq -r '.description // .file_path // .pattern // .command // empty' | head -c 60 || :)
               ;;
           esac
 
@@ -92,7 +93,7 @@ stream_claude() {
         fi
 
         local text
-        text=$(printf '%s' "${line}" | jq -r '.message.content[0].text // empty')
+        text=$(printf '%s' "${line}" | jq -r '.message.content[0].text // empty' || :)
         if [[ -n "${text}" ]]; then
           echo ""
           echo "${text}"
@@ -100,7 +101,7 @@ stream_claude() {
         ;;
       *) ;; # Ignore other message types
     esac
-  done
+  done || :
 }
 
 # Squash Ralph's commits into one
@@ -233,7 +234,7 @@ These must be fixed before squashing."
 
   # Extract the commit message
   local squash_msg
-  squash_msg=$(printf '%s' "${review_result}" | awk '/SQUASH_MESSAGE:/{found=1; next} found{print}' | sed 's/^[[:space:]]*//')
+  squash_msg=$(printf '%s' "${review_result}" | awk '/SQUASH_MESSAGE:/{found=1; next} found{print}' | sed 's/^[[:space:]]*//' || :)
 
   echo -e "${CYAN}Proposed squash commit message:${NC}"
   echo "────────────────────────────────────────────────────────"
@@ -285,7 +286,7 @@ if [[ "${1}" == "--squash" ]]; then
 fi
 
 # Check for staged changes
-if [[ -z "$(git diff --staged)" ]]; then
+if [[ -z "$(git diff --staged || :)" ]]; then
   echo -e "${RED}No staged changes to review.${NC}"
   echo "Stage your changes first: git add <files>"
   exit 1
@@ -374,7 +375,7 @@ else
   echo ""
 
   # Extract commit message (everything after COMMIT_MESSAGE: to end)
-  COMMIT_MSG=$(printf '%s' "${RESULT}" | awk '/COMMIT_MESSAGE:/{found=1; next} found{print}' | sed 's/^[[:space:]]*//')
+  COMMIT_MSG=$(printf '%s' "${RESULT}" | awk '/COMMIT_MESSAGE:/{found=1; next} found{print}' | sed 's/^[[:space:]]*//' || :)
 
   if [[ -n "${COMMIT_MSG}" ]]; then
     echo -e "${CYAN}Suggested commit message:${NC}"

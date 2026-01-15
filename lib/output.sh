@@ -4,7 +4,12 @@
 
 # Guard against double-sourcing
 if [[ -n "${OUTPUT_SH_LOADED:-}" ]]; then
-    return 0 2>/dev/null || exit 0
+    # return works when sourced, exit when executed directly
+    if (return 0 2>/dev/null); then
+        return 0
+    else
+        exit 0
+    fi
 fi
 OUTPUT_SH_LOADED=1
 
@@ -30,7 +35,7 @@ fi
 # Returns: 0 if all dependencies present, 1 otherwise
 check_dependencies() {
     if ! command -v jq &>/dev/null; then
-        printf "%sError: jq is required but not installed.%s\n" "$RED" "$NC" >&2
+        printf "%sError: jq is required but not installed.%s\n" "${RED}" "${NC}" >&2
         printf "Install with: brew install jq (macOS) or apt-get install jq (Linux)\n" >&2
         return 1
     fi
@@ -134,7 +139,7 @@ parse_tool_result() {
 
     # Count total lines
     if [[ -n "${output}" ]]; then
-        TOOL_TOTAL_LINES=$(printf '%s\n' "${output}" | wc -l | tr -d ' ')
+        TOOL_TOTAL_LINES=$(printf '%s\n' "${output}" | wc -l | tr -d ' ' || :)
     else
         TOOL_TOTAL_LINES=0
     fi
@@ -286,6 +291,9 @@ get_story_progress() {
         fi
     fi
 
+    # Export for use by callers
+    export STORY_CURRENT_ID STORY_CURRENT_TITLE STORY_COMPLETED_COUNT STORY_TOTAL_COUNT STORY_CURRENT_INDEX
+
     return 0
 }
 
@@ -332,7 +340,7 @@ _OUTPUT_TIMER_START=0
 # Usage: init_timer
 # Note: Uses bash SECONDS variable for BSD/GNU portability
 init_timer() {
-    _OUTPUT_TIMER_START=$SECONDS
+    _OUTPUT_TIMER_START=${SECONDS}
 }
 
 # get_elapsed - Get elapsed seconds since init_timer was called
@@ -427,7 +435,7 @@ parse_stream_line() {
     STREAM_RESULT_EXIT=""
 
     # Handle empty input
-    if [[ -z "$json_line" ]]; then
+    if [[ -z "${json_line}" ]]; then
         return 1
     fi
 
@@ -438,12 +446,12 @@ parse_stream_line() {
 
     # Validate JSON and extract type
     local msg_type
-    msg_type=$(printf '%s' "$json_line" | jq -r '.type // empty' 2>/dev/null)
+    msg_type=$(printf '%s' "${json_line}" | jq -r '.type // empty' 2>/dev/null)
 
     # Handle malformed JSON (jq returns non-zero or empty)
-    if [[ -z "$msg_type" ]]; then
+    if [[ -z "${msg_type}" ]]; then
         # Try to see if it's valid JSON but missing type
-        if ! printf '%s' "$json_line" | jq -e '.' >/dev/null 2>&1; then
+        if ! printf '%s' "${json_line}" | jq -e '.' >/dev/null 2>&1; then
             # Not valid JSON - skip silently
             return 1
         fi
@@ -452,30 +460,30 @@ parse_stream_line() {
         return 0
     fi
 
-    STREAM_TYPE="$msg_type"
+    STREAM_TYPE="${msg_type}"
 
-    case "$msg_type" in
+    case "${msg_type}" in
         assistant)
             # Extract tool name from .message.content[0].name
-            STREAM_TOOL_NAME=$(printf '%s' "$json_line" | jq -r '.message.content[0].name // empty' 2>/dev/null)
+            STREAM_TOOL_NAME=$(printf '%s' "${json_line}" | jq -r '.message.content[0].name // empty' 2>/dev/null)
 
-            if [[ -n "$STREAM_TOOL_NAME" ]]; then
+            if [[ -n "${STREAM_TOOL_NAME}" ]]; then
                 # This is a tool invocation - extract input
-                STREAM_TOOL_INPUT=$(printf '%s' "$json_line" | jq -c '.message.content[0].input // {}' 2>/dev/null)
+                STREAM_TOOL_INPUT=$(printf '%s' "${json_line}" | jq -c '.message.content[0].input // {}' 2>/dev/null)
             else
                 # Check for text content
-                STREAM_TEXT=$(printf '%s' "$json_line" | jq -r '.message.content[0].text // empty' 2>/dev/null)
+                STREAM_TEXT=$(printf '%s' "${json_line}" | jq -r '.message.content[0].text // empty' 2>/dev/null)
             fi
             ;;
         result)
             # Extract tool output and exit code
             # Result format can vary - try multiple paths
-            STREAM_RESULT_OUTPUT=$(printf '%s' "$json_line" | jq -r '.result.output // .result.stdout // .result // empty' 2>/dev/null)
-            STREAM_RESULT_EXIT=$(printf '%s' "$json_line" | jq -r '.result.exit_code // .result.exitCode // "0"' 2>/dev/null)
+            STREAM_RESULT_OUTPUT=$(printf '%s' "${json_line}" | jq -r '.result.output // .result.stdout // .result // empty' 2>/dev/null)
+            STREAM_RESULT_EXIT=$(printf '%s' "${json_line}" | jq -r '.result.exit_code // .result.exitCode // "0"' 2>/dev/null)
 
             # Handle case where result is the entire content
-            if [[ -z "$STREAM_RESULT_OUTPUT" ]]; then
-                STREAM_RESULT_OUTPUT=$(printf '%s' "$json_line" | jq -r '.result' 2>/dev/null)
+            if [[ -z "${STREAM_RESULT_OUTPUT}" ]]; then
+                STREAM_RESULT_OUTPUT=$(printf '%s' "${json_line}" | jq -r '.result' 2>/dev/null)
             fi
             ;;
         system)
@@ -486,6 +494,9 @@ parse_stream_line() {
             STREAM_TYPE="unknown"
             ;;
     esac
+
+    # Export for use by callers
+    export STREAM_TYPE STREAM_TOOL_NAME STREAM_TOOL_INPUT STREAM_TEXT STREAM_RESULT_OUTPUT STREAM_RESULT_EXIT
 
     return 0
 }
