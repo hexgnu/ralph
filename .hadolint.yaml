@@ -1,34 +1,50 @@
-# Hadolint configuration - AGGRESSIVE mode
+# Hadolint configuration - MAXIMUM STRICTNESS
 # https://github.com/hadolint/hadolint
 
-# Fail on any warning
-failure-threshold: warning
+# Fail on ANY issue (info, warning, or error)
+failure-threshold: info
 
-# Treat info as warnings (stricter)
+# Never allow failures to pass
 no-fail: false
 
-# Specific rule configuration
-ignored:
-  # Only ignore with documented justification:
-  # - DL3008: Pin versions in apt-get - ignored in Dockerfile with inline comment
-  # - DL3016: Pin versions in npm install - ignored for claude-code (want latest)
-  []
+# NO IGNORES - fix the code, don't silence the linter
+ignored: []
 
-# Strict mode - fail on warnings
+# Strict label enforcement
 strict-labels: true
 
-# Trusted registries - allow Docker Hub official images
+# Only allow official Docker Hub images
 trustedRegistries:
   - docker.io
 
-# Label schema enforcement
+# Required labels - enforce documentation
 label-schema:
   maintainer: text
   org.opencontainers.image.source: url
   org.opencontainers.image.description: text
+  org.opencontainers.image.version: text
+  org.opencontainers.image.licenses: text
 
-# Override rules for stricter behavior
+# Promote info-level rules to warnings for stricter enforcement
 override:
   warning:
-    # Treat these as warnings (they default to info)
     - DL3059  # Multiple consecutive RUN instructions
+    - DL3025  # Use JSON notation for CMD/ENTRYPOINT
+    - DL3020  # Use COPY instead of ADD
+  error:
+    - DL3000  # Use absolute WORKDIR
+    - DL3001  # Don't use apt-get upgrade
+    - DL3003  # Use WORKDIR instead of cd
+    - DL3004  # Don't use sudo
+    - DL3007  # Use specific tag, not :latest
+    - DL3009  # Delete apt lists after install
+    - DL3010  # Use ADD for extracting archives
+    - DL3013  # Pin pip versions
+    - DL3018  # Pin apk versions
+    - DL3019  # Use --no-cache for apk
+    - DL3027  # Don't use apt, use apt-get
+    - DL3028  # Pin gem versions
+    - DL3042  # Avoid cache dir with pip
+    - DL3047  # Avoid wget without certificate check
+    - DL4006  # Set SHELL for pipefail
+    - SC2086  # Quote variable expansions

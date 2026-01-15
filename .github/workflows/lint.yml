@@ -1,5 +1,5 @@
-# Comprehensive Linting Workflow
-# Runs on all PRs and pushes - blocks merge on failures
+# Comprehensive Linting Workflow - MAXIMUM STRICTNESS
+# Runs on all PRs and pushes - blocks merge on ANY lint failure
 
 name: Lint
 
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   # ==========================================================================
-  # ShellCheck - Shell script static analysis
+  # ShellCheck - Shell script static analysis (STRICT: all issues)
   # ==========================================================================
   shellcheck:
     name: ShellCheck
@@ -29,14 +29,14 @@ jobs:
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@2.0.0
         with:
-          severity: warning
+          severity: style
           scandir: '.'
           additional_files: 'lib/*.sh'
         env:
-          SHELLCHECK_OPTS: --external-sources
+          SHELLCHECK_OPTS: --external-sources --enable=all
 
   # ==========================================================================
-  # shfmt - Shell script formatting
+  # shfmt - Shell script formatting (STRICT: no diff allowed)
   # ==========================================================================
   shfmt:
     name: shfmt
@@ -52,7 +52,7 @@ jobs:
         run: shfmt -i 2 -bn -ci -sr -d *.sh lib/*.sh
 
   # ==========================================================================
-  # Hadolint - Dockerfile linting
+  # Hadolint - Dockerfile linting (STRICT: all issues including info)
   # ==========================================================================
   hadolint:
     name: Hadolint
@@ -65,7 +65,7 @@ jobs:
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: Dockerfile
-          failure-threshold: warning
+          failure-threshold: info
           config: .hadolint.yaml
 
   # ==========================================================================
@@ -84,7 +84,7 @@ jobs:
           fail-on-error: true
 
   # ==========================================================================
-  # yamllint - YAML linting
+  # yamllint - YAML linting (STRICT mode)
   # ==========================================================================
   yamllint:
     name: yamllint
@@ -102,10 +102,10 @@ jobs:
         run: pip install yamllint
 
       - name: Run yamllint
-        run: yamllint -c .yamllint.yaml .
+        run: yamllint -c .yamllint.yaml --strict .
 
   # ==========================================================================
-  # markdownlint - Markdown linting
+  # markdownlint - Markdown linting (STRICT: only MD033 disabled)
   # ==========================================================================
   markdownlint:
     name: markdownlint
@@ -122,13 +122,11 @@ jobs:
             agents/*.md
           config: |
             {
-              "MD013": false,
-              "MD033": false,
-              "MD041": false
+              "MD033": false
             }
 
   # ==========================================================================
-  # JSON validation
+  # JSON validation and formatting
   # ==========================================================================
   json-lint:
     name: JSON Lint
@@ -137,19 +135,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate JSON files
+      - name: Validate and check JSON formatting
         run: |
           echo "Validating JSON files..."
           failed=0
           for f in *.json; do
-            if [ -f "$f" ]; then
-              if jq empty "$f" 2>/dev/null; then
-                echo "  $f"
-              else
-                echo "  INVALID: $f"
+            if [ -f "$f" ] && [ "$f" != "package-lock.json" ]; then
+              # Validate JSON
+              if ! jq empty "$f" 2>/dev/null; then
+                echo "INVALID JSON: $f"
                 jq empty "$f"
                 failed=1
+                continue
               fi
+              # Check formatting (2-space indent)
+              jq --indent 2 '.' "$f" > "$f.formatted"
+              if ! diff -q "$f" "$f.formatted" > /dev/null 2>&1; then
+                echo "BAD FORMATTING: $f"
+                diff "$f" "$f.formatted" || true
+                failed=1
+              else
+                echo "$f"
+              fi
+              rm -f "$f.formatted"
             fi
           done
           exit $failed
@@ -168,9 +176,9 @@ jobs:
         uses: editorconfig-checker/action-editorconfig-checker@main
 
   # ==========================================================================
-  # Security - detect secrets
+  # Security - detect secrets with baseline
   # ==========================================================================
-  secrets:
+  detect-secrets:
     name: Detect Secrets
     runs-on: ubuntu-latest
     steps:
@@ -186,13 +194,27 @@ jobs:
         run: pip install detect-secrets
 
       - name: Run detect-secrets
-        run: |
-          detect-secrets scan --all-files --exclude-files 'package-lock\.json' \
-            | jq '.results | length' \
-            | xargs -I {} test {} -eq 0
+        run: detect-secrets scan --baseline .secrets.baseline
 
   # ==========================================================================
-  # Flowchart - ESLint and TypeScript
+  # Gitleaks - additional secret scanning
+  # ==========================================================================
+  gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ==========================================================================
+  # Flowchart - ESLint (strict) and TypeScript
   # ==========================================================================
   flowchart-lint:
     name: Flowchart Lint
@@ -214,18 +236,46 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run ESLint
-        run: npm run lint
+      - name: Run ESLint (strict)
+        run: npm run lint -- --max-warnings 0
 
-      - name: Run TypeScript check
-        run: npx tsc --noEmit
+      - name: Run TypeScript check (strict)
+        run: npx tsc --noEmit --strict
 
   # ==========================================================================
-  # Summary job - ensures all lints pass
+  # Commit message linting (conventional commits)
+  # ==========================================================================
+  commitlint:
+    name: Commit Messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install commitlint
+        run: npm install -g @commitlint/cli @commitlint/config-conventional
+
+      - name: Create commitlint config
+        run: echo "module.exports = {extends: ['@commitlint/config-conventional']}" > commitlint.config.js
+
+      - name: Lint commits
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  # ==========================================================================
+  # Summary job - ALL jobs must pass
   # ==========================================================================
   lint-pass:
     name: All Lints Pass
     runs-on: ubuntu-latest
+    if: always()
     needs:
       - shellcheck
       - shfmt
@@ -235,8 +285,18 @@ jobs:
       - markdownlint
       - json-lint
       - editorconfig
-      - secrets
+      - detect-secrets
+      - gitleaks
       - flowchart-lint
     steps:
-      - name: All lints passed
-        run: echo "All linting checks passed!"
+      - name: Check all jobs passed
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more lint jobs failed!"
+            exit 1
+          fi
+          if [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more lint jobs were cancelled!"
+            exit 1
+          fi
+          echo "All linting checks passed!"

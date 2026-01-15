@@ -6,6 +6,8 @@ FROM node:22-slim
 LABEL maintainer="Ralph Project"
 LABEL org.opencontainers.image.source="https://github.com/hexgnu/ralph"
 LABEL org.opencontainers.image.description="Ralph autonomous AI agent sandbox environment"
+LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.licenses="MIT"
 
 # Install dependencies and create ralph user
 # hadolint ignore=DL3008

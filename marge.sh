@@ -12,9 +12,10 @@
 set -e
 
 # Load nvm (required for claude command)
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-nvm use --lts --silent 2>/dev/null || true
+export NVM_DIR="${NVM_DIR:-${HOME}/.nvm}"
+# shellcheck source=/dev/null
+[[ -s "${NVM_DIR}/nvm.sh" ]] && . "${NVM_DIR}/nvm.sh"
+nvm use --lts --silent 2> /dev/null || true
 
 # Colors
 RED='\033[0;31m'
@@ -24,158 +25,168 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 usage() {
-    echo "Marge - Quality Gate (Post-flight)"
-    echo ""
-    echo "Usage:"
-    echo "  ./marge.sh              Review staged changes before commit"
-    echo "  ./marge.sh --squash     Squash Ralph's commits into one (run after Ralph completes)"
-    echo "  ./marge.sh \"context\"    Review with additional context"
-    echo ""
-    echo "Marge reviews code for:"
-    echo "  - Security vulnerabilities"
-    echo "  - Outage risks"
-    echo "  - Architecture violations"
-    echo "  - Excessive complexity"
-    echo ""
-    echo "For pre-flight PRD review, use: ./bart.sh --prd"
+  echo "Marge - Quality Gate (Post-flight)"
+  echo ""
+  echo "Usage:"
+  echo "  ./marge.sh              Review staged changes before commit"
+  echo "  ./marge.sh --squash     Squash Ralph's commits into one (run after Ralph completes)"
+  echo "  ./marge.sh \"context\"    Review with additional context"
+  echo ""
+  echo "Marge reviews code for:"
+  echo "  - Security vulnerabilities"
+  echo "  - Outage risks"
+  echo "  - Architecture violations"
+  echo "  - Excessive complexity"
+  echo ""
+  echo "For pre-flight PRD review, use: ./bart.sh --prd"
 }
 
 # Stream claude output with tool visibility (Claude Code style)
 stream_claude() {
-    local prompt="$1"
+  local prompt="${1}"
 
-    claude --agent marge --dangerously-skip-permissions --verbose --output-format stream-json -p "$prompt" 2>&1 | while IFS= read -r line; do
-        # Skip non-JSON lines
-        if ! echo "$line" | jq -e '.' >/dev/null 2>&1; then
-            continue
+  claude --agent marge --dangerously-skip-permissions --verbose --output-format stream-json -p "${prompt}" 2>&1 | while IFS= read -r line; do
+    # Skip non-JSON lines
+    if ! printf '%s' "${line}" | jq -e '.' > /dev/null 2>&1; then
+      continue
+    fi
+
+    local msg_type
+    msg_type=$(printf '%s' "${line}" | jq -r '.type // empty')
+
+    case "${msg_type}" in
+      assistant)
+        local tool
+        tool=$(printf '%s' "${line}" | jq -r '.message.content[0].name // empty')
+        if [[ -n "${tool}" ]]; then
+          local input desc
+          input=$(printf '%s' "${line}" | jq -r '.message.content[0].input // empty')
+
+          case "${tool}" in
+            Bash)
+              desc=$(printf '%s' "${input}" | jq -r '.description // empty')
+              [[ -z "${desc}" ]] && desc=$(printf '%s' "${input}" | jq -r '.command // empty' | head -c 60)
+              ;;
+            Read | Write | Edit)
+              desc=$(printf '%s' "${input}" | jq -r '.file_path // empty' | sed 's|.*/||')
+              ;;
+            Glob | Grep)
+              desc=$(printf '%s' "${input}" | jq -r '.pattern // empty')
+              ;;
+            Task)
+              desc=$(printf '%s' "${input}" | jq -r '.prompt // empty' | head -c 50)
+              ;;
+            TodoWrite)
+              desc=""
+              ;;
+            *)
+              desc=$(printf '%s' "${input}" | jq -r '.description // .file_path // .pattern // .command // empty' | head -c 60)
+              ;;
+          esac
+
+          if [[ -n "${desc}" ]]; then
+            echo -e "${CYAN}→ ${tool}:${NC} ${desc}"
+          else
+            echo -e "${CYAN}→ ${tool}${NC}"
+          fi
         fi
 
-        TYPE=$(echo "$line" | jq -r '.type // empty')
-
-        case "$TYPE" in
-            assistant)
-                TOOL=$(echo "$line" | jq -r '.message.content[0].name // empty')
-                if [ -n "$TOOL" ]; then
-                    INPUT=$(echo "$line" | jq -r '.message.content[0].input // empty')
-
-                    case "$TOOL" in
-                        Bash)
-                            DESC=$(echo "$INPUT" | jq -r '.description // empty')
-                            [ -z "$DESC" ] && DESC=$(echo "$INPUT" | jq -r '.command // empty' | head -c 60)
-                            ;;
-                        Read|Write|Edit)
-                            DESC=$(echo "$INPUT" | jq -r '.file_path // empty' | sed 's|.*/||')
-                            ;;
-                        Glob|Grep)
-                            DESC=$(echo "$INPUT" | jq -r '.pattern // empty')
-                            ;;
-                        Task)
-                            DESC=$(echo "$INPUT" | jq -r '.prompt // empty' | head -c 50)
-                            ;;
-                        TodoWrite)
-                            DESC=""
-                            ;;
-                        *)
-                            DESC=$(echo "$INPUT" | jq -r '.description // .file_path // .pattern // .command // empty' | head -c 60)
-                            ;;
-                    esac
-
-                    if [ -n "$DESC" ]; then
-                        echo -e "${CYAN}→ ${TOOL}:${NC} ${DESC}"
-                    else
-                        echo -e "${CYAN}→ ${TOOL}${NC}"
-                    fi
-                fi
-
-                TEXT=$(echo "$line" | jq -r '.message.content[0].text // empty')
-                if [ -n "$TEXT" ]; then
-                    echo ""
-                    echo "$TEXT"
-                fi
-                ;;
-        esac
-    done
+        local text
+        text=$(printf '%s' "${line}" | jq -r '.message.content[0].text // empty')
+        if [[ -n "${text}" ]]; then
+          echo ""
+          echo "${text}"
+        fi
+        ;;
+      *) ;; # Ignore other message types
+    esac
+  done
 }
 
 # Squash Ralph's commits into one
 squash_commits() {
-    echo -e "${YELLOW}═══════════════════════════════════════════════════════${NC}"
-    echo -e "${YELLOW}  Marge: Squash Ralph's Commits${NC}"
-    echo -e "${YELLOW}  \"Let's tidy this up before it goes to main.\"${NC}"
-    echo -e "${YELLOW}═══════════════════════════════════════════════════════${NC}"
+  echo -e "${YELLOW}═══════════════════════════════════════════════════════${NC}"
+  echo -e "${YELLOW}  Marge: Squash Ralph's Commits${NC}"
+  echo -e "${YELLOW}  \"Let's tidy this up before it goes to main.\"${NC}"
+  echo -e "${YELLOW}═══════════════════════════════════════════════════════${NC}"
+  echo ""
+
+  # Get current branch
+  local current_branch base_branch merge_base
+  current_branch=$(git branch --show-current)
+
+  # Find the base branch (usually main)
+  base_branch="main"
+  if ! git rev-parse --verify "${base_branch}" > /dev/null 2>&1; then
+    base_branch="master"
+  fi
+
+  # Find merge base
+  merge_base=$(git merge-base "${base_branch}" HEAD)
+
+  # Find Ralph's commits (those with US-XXX pattern)
+  local ralph_commits ralph_commit_count
+  ralph_commits=$(git log --oneline "${merge_base}"..HEAD --grep="US-[0-9][0-9]*" --format="%H")
+  ralph_commit_count=$(printf '%s' "${ralph_commits}" | grep -c . || echo 0)
+
+  if [[ "${ralph_commit_count}" -eq 0 ]]; then
+    echo -e "${RED}No Ralph commits found (looking for US-XXX pattern).${NC}"
+    echo "Ralph commits should have 'US-001', 'US-002', 'US-100', etc. in the message."
     echo ""
+    echo "All commits on branch:"
+    git log --oneline "${merge_base}"..HEAD
+    exit 1
+  fi
 
-    # Get current branch
-    CURRENT_BRANCH=$(git branch --show-current)
+  if [[ "${ralph_commit_count}" -eq 1 ]]; then
+    echo -e "${GREEN}Only 1 Ralph commit on branch - nothing to squash.${NC}"
+    exit 0
+  fi
 
-    # Find the base branch (usually main)
-    BASE_BRANCH="main"
-    if ! git rev-parse --verify "$BASE_BRANCH" >/dev/null 2>&1; then
-        BASE_BRANCH="master"
-    fi
+  # Get the oldest Ralph commit's parent (where we'll reset to)
+  local oldest_ralph_commit squash_base
+  oldest_ralph_commit=$(printf '%s' "${ralph_commits}" | tail -1)
+  squash_base=$(git rev-parse "${oldest_ralph_commit}^")
 
-    # Find merge base
-    MERGE_BASE=$(git merge-base "$BASE_BRANCH" HEAD)
+  echo -e "Branch: ${CYAN}${current_branch}${NC}"
+  echo -e "Base: ${CYAN}${base_branch}${NC}"
+  echo -e "Ralph commits to squash: ${CYAN}${ralph_commit_count}${NC}"
+  echo ""
 
-    # Find Ralph's commits (those with US-XXX pattern)
-    RALPH_COMMITS=$(git log --oneline "$MERGE_BASE"..HEAD --grep="US-[0-9][0-9]*" --format="%H")
-    RALPH_COMMIT_COUNT=$(echo "$RALPH_COMMITS" | grep -c . || echo 0)
+  echo "Ralph's commits (US-XXX):"
+  git log --oneline "${merge_base}"..HEAD --grep="US-[0-9][0-9]*"
+  echo ""
 
-    if [ "$RALPH_COMMIT_COUNT" -eq 0 ]; then
-        echo -e "${RED}No Ralph commits found (looking for US-XXX pattern).${NC}"
-        echo "Ralph commits should have 'US-001', 'US-002', 'US-100', etc. in the message."
-        echo ""
-        echo "All commits on branch:"
-        git log --oneline "$MERGE_BASE"..HEAD
-        exit 1
-    fi
+  echo "Changes:"
+  git diff --stat "${squash_base}"..HEAD
+  echo ""
 
-    if [ "$RALPH_COMMIT_COUNT" -eq 1 ]; then
-        echo -e "${GREEN}Only 1 Ralph commit on branch - nothing to squash.${NC}"
-        exit 0
-    fi
+  # Get Ralph's commit messages for context
+  local commit_messages diff_stat full_diff
+  commit_messages=$(git log --format="- %s" "${merge_base}"..HEAD --grep="US-[0-9][0-9]*")
 
-    # Get the oldest Ralph commit's parent (where we'll reset to)
-    OLDEST_RALPH_COMMIT=$(echo "$RALPH_COMMITS" | tail -1)
-    SQUASH_BASE=$(git rev-parse "$OLDEST_RALPH_COMMIT^")
+  # Get the diff for review (from squash base, not merge base)
+  diff_stat=$(git diff --stat "${squash_base}"..HEAD)
+  full_diff=$(git diff "${squash_base}"..HEAD)
 
-    echo -e "Branch: ${CYAN}$CURRENT_BRANCH${NC}"
-    echo -e "Base: ${CYAN}$BASE_BRANCH${NC}"
-    echo -e "Ralph commits to squash: ${CYAN}$RALPH_COMMIT_COUNT${NC}"
-    echo ""
+  echo -e "${CYAN}Marge is reviewing Ralph's work before squashing...${NC}"
+  echo ""
 
-    echo "Ralph's commits (US-XXX):"
-    git log --oneline "$MERGE_BASE"..HEAD --grep="US-[0-9][0-9]*"
-    echo ""
-
-    echo "Changes:"
-    git diff --stat "$SQUASH_BASE"..HEAD
-    echo ""
-
-    # Get Ralph's commit messages for context
-    COMMIT_MESSAGES=$(git log --format="- %s" "$MERGE_BASE"..HEAD --grep="US-[0-9][0-9]*")
-
-    # Get the diff for review (from squash base, not merge base)
-    DIFF_STAT=$(git diff --stat "$SQUASH_BASE"..HEAD)
-    FULL_DIFF=$(git diff "$SQUASH_BASE"..HEAD)
-
-    echo -e "${CYAN}Marge is reviewing Ralph's work before squashing...${NC}"
-    echo ""
-
-    # First, have Marge review the full diff
-    REVIEW_PROMPT="SQUASH REVIEW MODE
+  # First, have Marge review the full diff
+  local review_prompt
+  review_prompt="SQUASH REVIEW MODE
 
 As Marge, review ALL of Ralph's work on this feature branch before we squash it into one commit.
 
-Branch: $CURRENT_BRANCH
-Ralph's commits ($RALPH_COMMIT_COUNT total, identified by US-XXX pattern):
-$COMMIT_MESSAGES
+Branch: ${current_branch}
+Ralph's commits (${ralph_commit_count} total, identified by US-XXX pattern):
+${commit_messages}
 
 Files changed:
-$DIFF_STAT
+${diff_stat}
 
 Full diff:
-$FULL_DIFF
+${full_diff}
 
 Review this work for:
 - Security issues
@@ -204,78 +215,80 @@ Blocking Issues:
 
 These must be fixed before squashing."
 
-    # Run the review
-    REVIEW_RESULT=$(claude --agent marge --dangerously-skip-permissions -p "$REVIEW_PROMPT" 2>/dev/null)
+  # Run the review
+  local review_result
+  review_result=$(claude --agent marge --dangerously-skip-permissions -p "${review_prompt}" 2> /dev/null)
 
-    # Check if rejected
-    if echo "$REVIEW_RESULT" | grep -qi "VERDICT: REJECT"; then
-        echo -e "${RED}═══════════════════════════════════════════════════════${NC}"
-        echo -e "${RED}  MARGE SQUASH VERDICT: REJECT${NC}"
-        echo -e "${RED}═══════════════════════════════════════════════════════${NC}"
-        echo ""
-        echo "$REVIEW_RESULT" | grep -A 100 "Blocking Issues:" || echo "$REVIEW_RESULT"
-        echo ""
-        echo "Fix the issues above, commit the fixes, then run squash again."
-        exit 1
-    fi
-
-    # Extract the commit message
-    SQUASH_MSG=$(echo "$REVIEW_RESULT" | awk '/SQUASH_MESSAGE:/{found=1; next} found{print}' | sed 's/^[[:space:]]*//')
-
-    echo -e "${CYAN}Proposed squash commit message:${NC}"
-    echo "────────────────────────────────────────────────────────"
-    echo "$SQUASH_MSG"
-    echo "────────────────────────────────────────────────────────"
+  # Check if rejected
+  if printf '%s' "${review_result}" | grep -qi "VERDICT: REJECT"; then
+    echo -e "${RED}═══════════════════════════════════════════════════════${NC}"
+    echo -e "${RED}  MARGE SQUASH VERDICT: REJECT${NC}"
+    echo -e "${RED}═══════════════════════════════════════════════════════${NC}"
     echo ""
-
-    # Ask for confirmation
-    echo -e "${YELLOW}This will squash $RALPH_COMMIT_COUNT Ralph commits into one.${NC}"
-    read -p "Proceed with squash? [y/N] " -n 1 -r
+    printf '%s' "${review_result}" | grep -A 100 "Blocking Issues:" || printf '%s' "${review_result}"
     echo ""
+    echo "Fix the issues above, commit the fixes, then run squash again."
+    exit 1
+  fi
 
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Squash cancelled."
-        exit 0
-    fi
+  # Extract the commit message
+  local squash_msg
+  squash_msg=$(printf '%s' "${review_result}" | awk '/SQUASH_MESSAGE:/{found=1; next} found{print}' | sed 's/^[[:space:]]*//')
 
-    # Perform the squash using soft reset to before Ralph's first commit
-    echo -e "${CYAN}Squashing commits...${NC}"
-    git reset --soft "$SQUASH_BASE"
+  echo -e "${CYAN}Proposed squash commit message:${NC}"
+  echo "────────────────────────────────────────────────────────"
+  echo "${squash_msg}"
+  echo "────────────────────────────────────────────────────────"
+  echo ""
 
-    # Commit with the generated message
-    git commit -m "$SQUASH_MSG
+  # Ask for confirmation
+  echo -e "${YELLOW}This will squash ${ralph_commit_count} Ralph commits into one.${NC}"
+  read -p "Proceed with squash? [y/N] " -n 1 -r
+  echo ""
+
+  if [[ ! ${REPLY} =~ ^[Yy]$ ]]; then
+    echo "Squash cancelled."
+    exit 0
+  fi
+
+  # Perform the squash using soft reset to before Ralph's first commit
+  echo -e "${CYAN}Squashing commits...${NC}"
+  git reset --soft "${squash_base}"
+
+  # Commit with the generated message
+  git commit -m "${squash_msg}
 
 Co-Authored-By: Ralph (Claude Agent) <noreply@anthropic.com>
 Reviewed-By: Marge (Claude Agent) <noreply@anthropic.com>"
 
-    echo ""
-    echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}  Squash Complete${NC}"
-    echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-    echo ""
-    echo "New commit:"
-    git log -1 --oneline
-    echo ""
-    echo "Ready to push or create PR."
+  echo ""
+  echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
+  echo -e "${GREEN}  Squash Complete${NC}"
+  echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
+  echo ""
+  echo "New commit:"
+  git log -1 --oneline
+  echo ""
+  echo "Ready to push or create PR."
 }
 
 # Handle help
-if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
-    usage
-    exit 0
+if [[ "${1}" == "--help" ]] || [[ "${1}" == "-h" ]]; then
+  usage
+  exit 0
 fi
 
 # Handle squash
-if [ "$1" == "--squash" ]; then
-    squash_commits
-    exit 0
+if [[ "${1}" == "--squash" ]]; then
+  squash_commits
+  exit 0
 fi
 
 # Check for staged changes
-if [ -z "$(git diff --staged)" ]; then
-    echo -e "${RED}No staged changes to review.${NC}"
-    echo "Stage your changes first: git add <files>"
-    exit 1
+if [[ -z "$(git diff --staged)" ]]; then
+  echo -e "${RED}No staged changes to review.${NC}"
+  echo "Stage your changes first: git add <files>"
+  exit 1
 fi
 
 CONTEXT="${1:-}"
@@ -336,45 +349,45 @@ Blocking Issue:
 - Confidence: HIGH
 - What's wrong and how to fix it"
 
-if [ -n "$CONTEXT" ]; then
-    PROMPT="$PROMPT
+if [[ -n "${CONTEXT}" ]]; then
+  PROMPT="${PROMPT}
 
-Additional context: $CONTEXT"
+Additional context: ${CONTEXT}"
 fi
 
 # Run review
-RESULT=$(stream_claude "$PROMPT")
+RESULT=$(stream_claude "${PROMPT}")
 
 echo ""
 
 # Check verdict
-if echo "$RESULT" | grep -qi "REJECT"; then
-    echo -e "${RED}═══════════════════════════════════════════════════════${NC}"
-    echo -e "${RED}  MARGE VERDICT: REJECT${NC}"
-    echo -e "${RED}═══════════════════════════════════════════════════════${NC}"
-    echo "Fix the issues above and run marge again."
-    exit 1
+if printf '%s' "${RESULT}" | grep -qi "REJECT"; then
+  echo -e "${RED}═══════════════════════════════════════════════════════${NC}"
+  echo -e "${RED}  MARGE VERDICT: REJECT${NC}"
+  echo -e "${RED}═══════════════════════════════════════════════════════${NC}"
+  echo "Fix the issues above and run marge again."
+  exit 1
 else
-    echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}  MARGE VERDICT: COMMIT${NC}"
-    echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
+  echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
+  echo -e "${GREEN}  MARGE VERDICT: COMMIT${NC}"
+  echo -e "${GREEN}═══════════════════════════════════════════════════════${NC}"
+  echo ""
+
+  # Extract commit message (everything after COMMIT_MESSAGE: to end)
+  COMMIT_MSG=$(printf '%s' "${RESULT}" | awk '/COMMIT_MESSAGE:/{found=1; next} found{print}' | sed 's/^[[:space:]]*//')
+
+  if [[ -n "${COMMIT_MSG}" ]]; then
+    echo -e "${CYAN}Suggested commit message:${NC}"
+    echo "────────────────────────────────────────────────────────"
+    echo "${COMMIT_MSG}"
+    echo "────────────────────────────────────────────────────────"
     echo ""
-
-    # Extract commit message (everything after COMMIT_MESSAGE: to end)
-    COMMIT_MSG=$(echo "$RESULT" | awk '/COMMIT_MESSAGE:/{found=1; next} found{print}' | sed 's/^[[:space:]]*//')
-
-    if [ -n "$COMMIT_MSG" ]; then
-        echo -e "${CYAN}Suggested commit message:${NC}"
-        echo "────────────────────────────────────────────────────────"
-        echo "$COMMIT_MSG"
-        echo "────────────────────────────────────────────────────────"
-        echo ""
-        echo "To commit, run:"
-        echo "  git commit -m \"\$COMMIT_MSG\""
-        echo ""
-        echo "Or copy the message above."
-    else
-        echo "Safe to commit. (No commit message generated)"
-    fi
-    exit 0
+    echo "To commit, run:"
+    echo "  git commit -m \"\$COMMIT_MSG\""
+    echo ""
+    echo "Or copy the message above."
+  else
+    echo "Safe to commit. (No commit message generated)"
+  fi
+  exit 0
 fi

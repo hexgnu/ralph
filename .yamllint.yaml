@@ -1,58 +1,92 @@
-# yamllint configuration
+# yamllint configuration - MAXIMUM STRICTNESS
 # https://yamllint.readthedocs.io
 
 extends: default
 
 rules:
-  # Line length - be reasonable
+  # Line length - strict but practical
   line-length:
-    max: 120
+    max: 100
     allow-non-breakable-words: true
-    allow-non-breakable-inline-mappings: true
+    allow-non-breakable-inline-mappings: false
 
-  # Indentation
+  # Indentation - strict
   indentation:
     spaces: 2
-    indent-sequences: true
-    check-multi-line-strings: false
+    indent-sequences: consistent
+    check-multi-line-strings: true
 
-  # Truthy values
+  # Truthy values - only allow explicit booleans
   truthy:
-    allowed-values: ['true', 'false', 'on', 'off', 'yes', 'no']
-    check-keys: false
+    allowed-values: ['true', 'false']
+    check-keys: true
 
-  # Comments
+  # Comments - require proper formatting
   comments:
     require-starting-space: true
     ignore-shebangs: true
-    min-spaces-from-content: 1
+    min-spaces-from-content: 2
 
-  # Brackets and braces
+  # Brackets and braces - no spaces inside
   brackets:
     min-spaces-inside: 0
     max-spaces-inside: 0
 
   braces:
     min-spaces-inside: 0
-    max-spaces-inside: 1
+    max-spaces-inside: 0
 
-  # Document markers
-  document-start: disable
+  # Colons - strict spacing
+  colons:
+    max-spaces-before: 0
+    max-spaces-after: 1
+
+  # Commas - strict spacing
+  commas:
+    max-spaces-before: 0
+    min-spaces-after: 1
+    max-spaces-after: 1
+
+  # Document markers - require for multi-doc files
+  document-start:
+    present: false
   document-end: disable
 
-  # Empty lines
+  # Empty lines - strict
   empty-lines:
-    max: 2
+    max: 1
     max-start: 0
-    max-end: 1
+    max-end: 0
 
-  # Key duplicates
+  # Empty values - disallow
+  empty-values:
+    forbid-in-block-mappings: true
+    forbid-in-flow-mappings: true
+
+  # Hyphens - consistent spacing
+  hyphens:
+    max-spaces-after: 1
+
+  # Key duplicates - error
   key-duplicates: enable
+
+  # Key ordering - alphabetical (strict)
+  key-ordering: disable
 
   # New lines
   new-line-at-end-of-file: enable
   new-lines:
     type: unix
 
-  # Trailing spaces
+  # Octal values - disallow implicit
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: false
+
+  # Quoted strings - consistent
+  quoted-strings:
+    quote-type: any
+    required: only-when-needed
+
+  # Trailing spaces - never allowed
   trailing-spaces: enable
